@@ -6,7 +6,8 @@
 
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
-using Cloud = pcl::PointCloud<pcl::PointXYZ>;
+using Point = pcl::PointXYZ;
+using Cloud = pcl::PointCloud<Point>;
 using CloudPtr = Cloud::Ptr;
 using rclcppCloud = sensor_msgs::msg::PointCloud2;
 using rclcppCloudSharedPtr = rclcppCloud::SharedPtr;

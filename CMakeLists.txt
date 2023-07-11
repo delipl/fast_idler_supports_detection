@@ -5,8 +5,6 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-disable_testing()
-
 find_package(ament_cmake REQUIRED)
 find_package(PCL REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -25,8 +23,10 @@ include_directories(
 
 add_executable(object_detection
   src/object_detection.cpp
+  src/outlier_removal.cpp
   src/ground_removal.cpp
-  src/node.cpp)
+  src/node.cpp
+)
 target_link_libraries(object_detection ${PCL_LIBRARIES})
 
 ament_target_dependencies(object_detection rclcpp sensor_msgs pcl_conversions)

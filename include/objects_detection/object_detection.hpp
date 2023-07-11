@@ -14,6 +14,7 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
 #include <objects_detection/utils.hpp>
+#include <objects_detection/outlier_removal.hpp>
 #include <objects_detection/ground_removal.hpp>
 
 using namespace std::chrono_literals;
@@ -31,5 +32,5 @@ private:
     rclcppCloud convert_cloud_ptr_to_point_cloud2(CloudPtr cloud) const;
 
     rclcpp::Subscription<rclcppCloud>::SharedPtr lidar_pc2_sub_;
-    rclcpp::Publisher<rclcppCloud>::SharedPtr ground_pc2_pub_;
+    rclcpp::Publisher<rclcppCloud>::SharedPtr test_pc2_pub_;
 };
