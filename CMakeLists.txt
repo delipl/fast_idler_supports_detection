@@ -20,19 +20,69 @@ include_directories(
         ${PCL_INCLUDE_DIRS}
         include
 )
+add_library(detection_library SHARED
+  src/utils.cpp
+  src/outlier_removal.cpp
+  src/ground_removal.cpp
+)
+
+target_include_directories(
+  detection_library
+  PUBLIC
+  include
+)
+
+target_link_libraries(detection_library
+  # rclcpp
+  # sensor_msgs
+  # pcl_conversions
+  ${PCL_LIBRARIES}
+)
+
+ament_target_dependencies(detection_library
+  rclcpp
+  sensor_msgs
+  pcl_conversions
+)
 
 add_executable(object_detection
   src/object_detection.cpp
-  src/outlier_removal.cpp
-  src/ground_removal.cpp
   src/node.cpp
 )
-target_link_libraries(object_detection ${PCL_LIBRARIES})
 
-ament_target_dependencies(object_detection rclcpp sensor_msgs pcl_conversions)
+target_link_libraries(object_detection ${PCL_LIBRARIES} detection_library)
+
+ament_target_dependencies(object_detection
+  rclcpp
+  sensor_msgs
+  pcl_conversions
+)
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(${PROJECT_NAME}_tests
+    test/test_tutorial.cpp
+  )
+  target_include_directories(${PROJECT_NAME}_tests PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+  )
+  ament_target_dependencies(${PROJECT_NAME}_tests
+    rclcpp
+    sensor_msgs
+    pcl_conversions
+  )
+  target_link_libraries(${PROJECT_NAME}_tests ${PCL_LIBRARIES} detection_library)
+endif()
 
 install(TARGETS
   object_detection
+
   DESTINATION lib/${PROJECT_NAME})
+
+install(DIRECTORY
+  test_data
+  DESTINATION share/${PROJECT_NAME}
+)
 
 ament_package()
