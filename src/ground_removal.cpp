@@ -9,3 +9,21 @@ CloudPtr GroundRemoval::dummy(CloudPtr cloud, double threshold) const {
     }
     return cloud_without_ground;
 }
+
+CloudPtr GroundRemoval::sac_segmentation(CloudPtr cloud, double threshold) const {
+    CloudPtr cloud_without_ground(cloud);
+    pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
+    pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+    // Create the segmentation object
+    pcl::SACSegmentation<pcl::PointXYZ> seg;
+    // Optional
+    seg.setOptimizeCoefficients (true);
+    // Mandatory
+    seg.setModelType (pcl::SACMODEL_PLANE);
+    seg.setMethodType (pcl::SAC_RANSAC);
+    seg.setDistanceThreshold (threshold);
+
+    seg.setInputCloud (cloud_without_ground);
+    seg.segment (*inliers, *coefficients);
+    return cloud_without_ground;
+}

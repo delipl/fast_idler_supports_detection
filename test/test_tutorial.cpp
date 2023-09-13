@@ -28,11 +28,18 @@ TEST(PCDFileTest, LoadPCDFile) {
 TEST(RemovingOutliersTest, ThreeVariants) {
     CloudPtr cloud(new Cloud);
     auto load_result = load_test_cloud(cloud);
+    ASSERT_EQ(load_result, 0);
+    (void)load_result;
 
     OutlierRemoval algorythm;
-    auto cloud_test = algorythm.statistical_pcl(cloud, 20, -0.01);
-    save_cloud("statistical_removing_outliers_20_m0.01.pcd", cloud_test);
+    auto cloud_test_1 = algorythm.statistical_pcl(cloud, 20, -0.01);
+    save_cloud("statistical_removing_outliers_20_m0.01.pcd", cloud_test_1);
 
+    auto cloud_test_2 = algorythm.statistical_pcl(cloud, 50, -0.01);
+    save_cloud("statistical_removing_outliers_50_m0.01.pcd", cloud_test_2);
+
+    auto cloud_test_3 = algorythm.statistical_pcl(cloud, 20, -0.05);
+    save_cloud("statistical_removing_outliers_20_m0.05.pcd", cloud_test_3);
 }
 
 int main(int argc, char** argv) {
