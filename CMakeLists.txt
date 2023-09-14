@@ -20,6 +20,7 @@ include_directories(
         ${PCL_INCLUDE_DIRS}
         include
 )
+
 add_library(detection_library SHARED
   src/utils.cpp
   src/outlier_removal.cpp
@@ -33,9 +34,6 @@ target_include_directories(
 )
 
 target_link_libraries(detection_library
-  # rclcpp
-  # sensor_msgs
-  # pcl_conversions
   ${PCL_LIBRARIES}
 )
 
@@ -45,14 +43,25 @@ ament_target_dependencies(detection_library
   pcl_conversions
 )
 
-add_executable(object_detection
-  src/object_detection.cpp
-  src/node.cpp
+install(TARGETS
+  detection_library
+  DESTINATION lib/
 )
 
-target_link_libraries(object_detection ${PCL_LIBRARIES} detection_library)
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
 
-ament_target_dependencies(object_detection
+ament_export_include_directories(
+  include
+)
+
+ament_export_libraries(
+  detection_library
+)
+
+ament_export_dependencies(
   rclcpp
   sensor_msgs
   pcl_conversions
@@ -75,14 +84,32 @@ if(BUILD_TESTING)
   target_link_libraries(${PROJECT_NAME}_tests ${PCL_LIBRARIES} detection_library)
 endif()
 
-install(TARGETS
-  object_detection
-
-  DESTINATION lib/${PROJECT_NAME})
-
 install(DIRECTORY
   test_data
   DESTINATION share/${PROJECT_NAME}
 )
+
+add_executable(object_detection
+  src/object_detection.cpp
+  src/node.cpp
+)
+
+ament_target_dependencies(object_detection
+  rclcpp
+  sensor_msgs
+  pcl_conversions
+)
+
+target_include_directories(
+  object_detection
+  PUBLIC
+  include
+)
+
+target_link_libraries(object_detection ${PCL_LIBRARIES} detection_library)
+
+install(TARGETS
+  object_detection
+  DESTINATION lib/${PROJECT_NAME})
 
 ament_package()

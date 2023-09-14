@@ -14,6 +14,7 @@ rclcppCloud convert_cloud_ptr_to_point_cloud2(CloudPtr cloud, rclcpp::Node *node
     pcl::toPCLPointCloud2(*cloud, point_cloud2);
     pcl_conversions::fromPCL(point_cloud2, point_cloud);
 
+    // point_cloud.header.frame_id = "livox_frame";
     point_cloud.header.frame_id = "livox";
     point_cloud.header.stamp = node->get_clock()->now();
     point_cloud.is_dense = true;
@@ -26,4 +27,12 @@ void print_diffrence(const std::string &logger_name, CloudPtr cloud1, CloudPtr c
                        "Got: " << cloud1->points.size() << " points.");
     RCLCPP_INFO_STREAM(rclcpp::get_logger(logger_name),
                        "Removed: " << removed_points_count << " points.");
+}
+
+CloudPtr rotate(CloudPtr cloud, double angle) {
+    CloudPtr transformed_cloud(new Cloud);
+    Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
+    transform_2.rotate (Eigen::AngleAxisf (angle, Eigen::Vector3f::UnitY()));
+    pcl::transformPointCloud (*cloud, *transformed_cloud, transform_2);
+    return transformed_cloud;
 }

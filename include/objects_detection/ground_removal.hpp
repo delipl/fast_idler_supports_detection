@@ -1,5 +1,6 @@
 #pragma once
 
+#include <pcl/filters/extract_indices.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
@@ -13,5 +14,5 @@ class GroundRemoval {
    public:
     GroundRemoval() = default;
     CloudPtr dummy(CloudPtr cloud, double threshold) const;
-    CloudPtr sac_segmentation(CloudPtr cloud, double threshold) const;
+    CloudPtr planar_segmentation(CloudPtr cloud, double threshold, double eps_angle) const;
 };

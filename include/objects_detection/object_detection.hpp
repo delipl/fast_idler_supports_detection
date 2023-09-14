@@ -8,6 +8,7 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl/common/transforms.h>
 #include <pcl_conversions/pcl_conversions.h>
 
 #include <rclcpp/rclcpp.hpp>
@@ -29,4 +30,5 @@ class ObjectDetection : public rclcpp::Node {
 
     rclcpp::Subscription<rclcppCloud>::SharedPtr lidar_pc2_sub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr test_pc2_pub_;
+    rclcpp::Publisher<rclcppCloud>::SharedPtr rotated_without_ground_pub_;
 };
