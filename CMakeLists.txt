@@ -23,6 +23,7 @@ include_directories(
 
 add_library(detection_library SHARED
   src/utils.cpp
+  src/down_sampling.cpp
   src/outlier_removal.cpp
   src/ground_removal.cpp
 )

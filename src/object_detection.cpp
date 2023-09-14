@@ -4,9 +4,11 @@ ObjectDetection::ObjectDetection() : Node("object_detection") { create_rclcpp_in
 
 void ObjectDetection::create_rclcpp_instances() {
     test_pc2_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("inz/test", 10);
-    rotated_without_ground_pub_ =
-        this->create_publisher<sensor_msgs::msg::PointCloud2>("inz/rotated_without_ground", 10);
-
+    mid360_rotated_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("inz/rotated", 10);
+    leaf_down_sampling_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("inz/down_sampled", 10);
+    outlier_removal_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("inz/outlier_removal", 10);
+    without_ground_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("inz/ground_removal", 10);
+    clustered_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered", 10);
     using std::placeholders::_1;
     const std::string &topic_name = "/mid360";
     // const std::string &topic_name = "/livox/lidar";
@@ -23,13 +25,17 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
 
     auto cloud{convert_point_cloud2_to_cloud_ptr(msg)};
     auto transformed_cloud = rotate(cloud, 0.15);
-    test_pc2_pub_->publish(convert_cloud_ptr_to_point_cloud2(transformed_cloud, this));
+    mid360_rotated_pub_->publish(convert_cloud_ptr_to_point_cloud2(transformed_cloud, this));
+
+    DownSampling down_sampler;
+    auto down_sampled = down_sampler.leaf(transformed_cloud, 0.05, 0.05, 0.05);
+    leaf_down_sampling_pub_->publish(convert_cloud_ptr_to_point_cloud2(down_sampled, this));
 
     OutlierRemoval remover;
-    auto removed_outliers = remover.statistical_pcl(transformed_cloud, 50, 0.01);
-
+    auto removed_outliers = remover.statistical_pcl(down_sampled, 50, 0.01);
+    outlier_removal_pub_->publish(convert_cloud_ptr_to_point_cloud2(removed_outliers, this));
 
     GroundRemoval algorythm;
     auto cloud_test = algorythm.planar_segmentation(removed_outliers, 0.15, 0.01);
-    rotated_without_ground_pub_->publish(convert_cloud_ptr_to_point_cloud2(cloud_test, this));
+    without_ground_pub_->publish(convert_cloud_ptr_to_point_cloud2(cloud_test, this));
 }
