@@ -75,16 +75,23 @@ TEST(OnlyGroundRemoval, GroundPlaneRemovalThreeVariants){
     ASSERT_EQ(load_result, 0);
     (void)load_result;
 
+    auto rotated_cloud = rotate(cloud, 0.15);
     GroundRemoval ground_removal_argorythm;
-    auto cloud_test_1 = ground_removal_argorythm.planar_segmentation(cloud, 0.1, 0.15);
-    save_cloud("plane_ground_removal_4.0.pcd", cloud_test_1);
+    auto cloud_test_1 = ground_removal_argorythm.planar_segmentation(rotated_cloud, 0.15, 0.15);
+    save_cloud("plane_ground_removal_0.15_0.15.pcd", cloud_test_1);
     EXPECT_THAT(cloud_test_1->points.size(), testing::Le(cloud->points.size()));
 
-    // auto cloud_test_2 = ground_removal_argorythm.dummy(cloud, 0.3);
-    // save_cloud("dummy_ground_removal_0.3.pcd", cloud_test_2);
+    auto cloud_test_2 = ground_removal_argorythm.planar_segmentation(rotated_cloud, 0.15, 0.01);
+    save_cloud("plane_ground_removal_0.15_0.01.pcd", cloud_test_2);
+    EXPECT_THAT(cloud_test_2->points.size(), testing::Le(cloud->points.size()));
 
-    // auto cloud_test_3 = ground_removal_argorythm.dummy(cloud, 0.5);
-    // save_cloud("dummy_ground_removal_0.5.pcd", cloud_test_3);
+    auto cloud_test_3 = ground_removal_argorythm.planar_segmentation(rotated_cloud, 0.05, 0.15);
+    save_cloud("plane_ground_removal_0.05_0.15.pcd", cloud_test_3);
+    EXPECT_THAT(cloud_test_3->points.size(), testing::Le(cloud->points.size()));
+
+    auto cloud_test_4 = ground_removal_argorythm.planar_segmentation(rotated_cloud, 0.05, 0.01);
+    save_cloud("plane_ground_removal_0.05_0.01.pcd", cloud_test_4);
+    EXPECT_THAT(cloud_test_4->points.size(), testing::Le(cloud->points.size()));
 }
 
 
