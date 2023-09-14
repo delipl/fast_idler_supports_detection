@@ -19,3 +19,11 @@ rclcppCloud convert_cloud_ptr_to_point_cloud2(CloudPtr cloud, rclcpp::Node *node
     point_cloud.is_dense = true;
     return point_cloud;
 }
+
+void print_diffrence(const std::string &logger_name, CloudPtr cloud1, CloudPtr cloud2) {
+    const auto removed_points_count = cloud1->points.size() - cloud2->points.size();
+    RCLCPP_INFO_STREAM(rclcpp::get_logger(logger_name),
+                       "Got: " << cloud1->points.size() << " points.");
+    RCLCPP_INFO_STREAM(rclcpp::get_logger(logger_name),
+                       "Removed: " << removed_points_count << " points.");
+}

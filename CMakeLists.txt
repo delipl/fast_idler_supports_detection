@@ -59,8 +59,8 @@ ament_target_dependencies(object_detection
 )
 
 if(BUILD_TESTING)
-  find_package(ament_cmake_gtest REQUIRED)
-  ament_add_gtest(${PROJECT_NAME}_tests
+  find_package(ament_cmake_gmock REQUIRED)
+  ament_add_gmock(${PROJECT_NAME}_tests
     test/test_tutorial.cpp
   )
   target_include_directories(${PROJECT_NAME}_tests PUBLIC
