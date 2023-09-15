@@ -21,6 +21,20 @@ rclcppCloud convert_cloud_ptr_to_point_cloud2(CloudPtr cloud, rclcpp::Node *node
     return point_cloud;
 }
 
+rclcppCloud convert_cloudi_ptr_to_point_cloud2(CloudIPtr cloud, rclcpp::Node *node) {
+    sensor_msgs::msg::PointCloud2 point_cloud;
+    pcl::PCLPointCloud2 point_cloud2;
+    pcl::toPCLPointCloud2(*cloud, point_cloud2);
+    pcl_conversions::fromPCL(point_cloud2, point_cloud);
+
+    // point_cloud.header.frame_id = "livox_frame";
+    point_cloud.header.frame_id = "livox";
+    point_cloud.header.stamp = node->get_clock()->now();
+    point_cloud.is_dense = true;
+    return point_cloud;
+}
+
+
 void print_diffrence(const std::string &logger_name, CloudPtr cloud1, CloudPtr cloud2) {
     const auto removed_points_count = cloud1->points.size() - cloud2->points.size();
     RCLCPP_INFO_STREAM(rclcpp::get_logger(logger_name),

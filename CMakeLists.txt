@@ -26,6 +26,7 @@ add_library(detection_library SHARED
   src/down_sampling.cpp
   src/outlier_removal.cpp
   src/ground_removal.cpp
+  src/cluster_extraction.cpp
 )
 
 target_include_directories(

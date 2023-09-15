@@ -18,6 +18,7 @@
 #include <objects_detection/down_sampling.hpp>
 #include <objects_detection/outlier_removal.hpp>
 #include <objects_detection/ground_removal.hpp>
+#include <objects_detection/cluster_extraction.hpp>
 
 using namespace std::chrono_literals;
 

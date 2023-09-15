@@ -36,6 +36,14 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     outlier_removal_pub_->publish(convert_cloud_ptr_to_point_cloud2(removed_outliers, this));
 
     GroundRemoval algorythm;
-    auto cloud_test = algorythm.planar_segmentation(removed_outliers, 0.15, 0.01);
-    without_ground_pub_->publish(convert_cloud_ptr_to_point_cloud2(cloud_test, this));
+    auto ground_removed = algorythm.planar_segmentation(removed_outliers, 0.15, 0.01);
+    without_ground_pub_->publish(convert_cloud_ptr_to_point_cloud2(ground_removed, this));
+
+    ClusterExtraction clusteler;
+    auto clustered_clouds = clusteler.euclidean(ground_removed, 0.1, 10, 1000);
+    CloudIPtr merged_clustered_cloud(new CloudI);
+    for (auto &clustered_cloud : clustered_clouds) {
+        *merged_clustered_cloud += *clustered_cloud;
+    }
+    clustered_pub_->publish(convert_cloudi_ptr_to_point_cloud2(merged_clustered_cloud, this));
 }
