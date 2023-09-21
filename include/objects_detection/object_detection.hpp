@@ -46,4 +46,7 @@ class ObjectDetection : public rclcpp::Node {
 
     DownSampling down_sampler;
     OutlierRemoval outlier_remover;
+    GroundRemoval ground_remover;
+    ClusterExtraction clusteler;
+
 };

@@ -1,6 +1,7 @@
 #include <objects_detection/cluster_extraction.hpp>
 
-std::vector<CloudIPtr> ClusterExtraction::euclidean(CloudPtr cloud, double tolerance, std::size_t min_size, std::size_t max_size) const {
+std::vector<CloudIPtr> ClusterExtraction::euclidean(CloudPtr cloud, double tolerance, std::size_t min_size,
+                                                    std::size_t max_size) const {
     CloudPtr cloud_filtered(cloud);
     pcl::search::KdTree<Point>::Ptr tree(new pcl::search::KdTree<Point>);
     tree->setInputCloud(cloud);
@@ -36,4 +37,8 @@ std::vector<CloudIPtr> ClusterExtraction::euclidean(CloudPtr cloud, double toler
         ++j;
     }
     return clouds;
+}
+
+std::vector<CloudIPtr> ClusterExtraction::euclidean(CloudPtr cloud) const {
+    return euclidean(cloud, euclidean_tolerance, euclidean_min_size, euclidean_max_size);
 }

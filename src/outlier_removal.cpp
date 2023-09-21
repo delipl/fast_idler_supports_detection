@@ -28,9 +28,10 @@ CloudPtr OutlierRemoval::radius_outlier(CloudPtr cloud, std::size_t k, double ra
     filter.setRadiusSearch(radius);
     filter.setMinNeighborsInRadius(k);
     filter.setKeepOrganized(true);
-    // apply filter
     filter.filter(*filtered);
+
     print_diffrence("statistical_outlier_removal", cloud, filtered);
+
     return filtered;
 }
 
