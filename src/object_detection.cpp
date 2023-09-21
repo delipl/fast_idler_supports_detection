@@ -12,8 +12,11 @@ void ObjectDetection::declare_parameters() {
 
     declare_parameter("down_sampler.leaf_size", "0.05");
 
-    declare_parameter("outlier_remover.neightbours_count", "50");
-    declare_parameter("outlier_remover.stddev_mul_thresh", "-0.01");
+    declare_parameter("outlier_remover.statistical.neightbours_count", "50");
+    declare_parameter("outlier_remover.statistical.stddev_mul_thresh", "-0.01");
+
+    declare_parameter("outlier_remover.radius_outlier.neightbours_count", "50");
+    declare_parameter("outlier_remover.radius_outlier.radius", "1.0");
 
     declare_parameter("ground_remover.dummy.threshold", "-1.2");
     declare_parameter("ground_remover.planar_segmentation.threshold", "0.15");
@@ -26,8 +29,10 @@ void ObjectDetection::get_parameters() {
 
     down_sampler.leaf_size = std::stod(get_parameter("down_sampler.leaf_size").as_string());
 
-    outlier_remover.neightbours_count = std::stoi(get_parameter("outlier_remover.neightbours_count").as_string());
-    outlier_remover.stddev_mul_thresh = std::stod(get_parameter("outlier_remover.stddev_mul_thresh").as_string());
+    outlier_remover.statistical_neightbours_count = std::stoi(get_parameter("outlier_remover.statistical.neightbours_count").as_string());
+    outlier_remover.statistical_stddev_mul_thresh = std::stod(get_parameter("outlier_remover.statistical.stddev_mul_thresh").as_string());
+    outlier_remover.radius_outlier_neightbours_count = std::stoi(get_parameter("outlier_remover.radius_outlier.neightbours_count").as_string());
+    outlier_remover.radius_outlier_radius = std::stod(get_parameter("outlier_remover.radius_outlier.radius").as_string());
 
 }
 
@@ -62,7 +67,7 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     leaf_down_sampling_pub_->publish(convert_cloud_ptr_to_point_cloud2(down_sampled, frame, this));
 
     
-    auto removed_outliers = outlier_remover.statistical_pcl(down_sampled);
+    auto removed_outliers = outlier_remover.radius_outlier(down_sampled);
     outlier_removal_pub_->publish(convert_cloud_ptr_to_point_cloud2(removed_outliers, frame, this));
 
     GroundRemoval ground_remover;
