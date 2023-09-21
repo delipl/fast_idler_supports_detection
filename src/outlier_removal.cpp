@@ -15,3 +15,7 @@ CloudPtr OutlierRemoval::statistical_pcl(CloudPtr cloud, uint k, double stddev_m
 
     return filtered;
 }
+
+CloudPtr OutlierRemoval::statistical_pcl(CloudPtr cloud) const{
+    return statistical_pcl(cloud, neightbours_count, stddev_mul_thresh);
+}

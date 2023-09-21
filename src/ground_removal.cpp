@@ -9,8 +9,8 @@ CloudPtr GroundRemoval::dummy(CloudPtr cloud, double threshold) const {
             cloud_without_ground->points.push_back(point);
         }
     }
-    // FIXME: Number of points different than width * height!" thrown in the test body.
-    // Nie wiem jak sensownie zmienić wysokość i szerokość
+    cloud_without_ground->height = 1;
+    cloud_without_ground->width = cloud_without_ground->points.size();
 
     print_diffrence("ground_removal_dummy", cloud, cloud_without_ground);
     return cloud_without_ground;

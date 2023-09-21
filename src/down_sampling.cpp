@@ -11,3 +11,7 @@ CloudPtr DownSampling::leaf(CloudPtr cloud, double size_x, double size_y, double
 
     return cloud_filtered;
 }
+
+ CloudPtr DownSampling::leaf(CloudPtr cloud) const{
+    return leaf(cloud, leaf_size, leaf_size, leaf_size);
+ }
