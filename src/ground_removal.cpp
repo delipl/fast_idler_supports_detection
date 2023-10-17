@@ -1,10 +1,8 @@
 #include <objects_detection/ground_removal.hpp>
 
-
-
 CloudPtr GroundRemoval::dummy(CloudPtr cloud, double threshold) const {
     CloudPtr cloud_without_ground(new Cloud);
-    for (auto& point : cloud->points) {
+    for (const auto& point : cloud->points) {
         if (point.z > threshold) {
             cloud_without_ground->points.push_back(point);
         }
@@ -12,7 +10,6 @@ CloudPtr GroundRemoval::dummy(CloudPtr cloud, double threshold) const {
     cloud_without_ground->height = 1;
     cloud_without_ground->width = cloud_without_ground->points.size();
 
-    print_diffrence("ground_removal_dummy", cloud, cloud_without_ground);
     return cloud_without_ground;
 }
 
@@ -42,8 +39,7 @@ CloudPtr GroundRemoval::planar_segmentation(CloudPtr cloud, double threshold, do
 
         if (inliers->indices.size() == 0) {
             break;
-        }
-        else if (inliers->indices.size() != filter_pc.size()) {
+        } else if (inliers->indices.size() != filter_pc.size()) {
             extract.setInputCloud(filter_pc.makeShared());
             extract.setIndices(inliers);
             extract.setNegative(true);
@@ -55,6 +51,11 @@ CloudPtr GroundRemoval::planar_segmentation(CloudPtr cloud, double threshold, do
         found_ground = true;
     }
 
-    print_diffrence("planar_segmentation", cloud, cloud_without_ground);
     return cloud_without_ground;
 }
+
+CloudPtr GroundRemoval::planar_segmentation(CloudPtr cloud) const {
+    return planar_segmentation(cloud, planar_segmentation_threshold, planar_segmentation_eps_angle);
+}
+
+CloudPtr GroundRemoval::dummy(CloudPtr cloud) const { return dummy(cloud, dummy_threshold); }

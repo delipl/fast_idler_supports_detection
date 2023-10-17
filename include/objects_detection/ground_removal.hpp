@@ -14,5 +14,12 @@ class GroundRemoval {
    public:
     GroundRemoval() = default;
     CloudPtr dummy(CloudPtr cloud, double threshold) const;
+    CloudPtr dummy(CloudPtr cloud) const;
+    
     CloudPtr planar_segmentation(CloudPtr cloud, double threshold, double eps_angle) const;
+    CloudPtr planar_segmentation(CloudPtr cloud) const;
+
+    double dummy_threshold;
+    double planar_segmentation_threshold;
+    double planar_segmentation_eps_angle;
 };

@@ -13,8 +13,8 @@
 class ClusterExtraction {
    public:
     ClusterExtraction() = default;
-    std::vector<CloudIPtr> euclidean(CloudPtr cloud, double tolerance, std::size_t min_size, std::size_t max_size) const;
-    std::vector<CloudIPtr> euclidean(CloudPtr cloud) const;
+    CloudIPtrs euclidean(CloudPtr cloud, double tolerance, std::size_t min_size, std::size_t max_size) const;
+    CloudIPtrs euclidean(CloudPtr cloud) const;
 
     double euclidean_tolerance = 0.0;
     double euclidean_min_size = 0;

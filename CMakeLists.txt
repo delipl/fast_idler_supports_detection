@@ -10,10 +10,13 @@ find_package(PCL REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(pcl_conversions REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
+set(CMAKE_BUILD_TYPE Release)
 include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
+
 
 include_directories(
         ${catkin_INCLUDE_DIRS}
@@ -43,6 +46,7 @@ ament_target_dependencies(detection_library
   rclcpp
   sensor_msgs
   pcl_conversions
+  visualization_msgs
 )
 
 install(TARGETS
@@ -96,7 +100,17 @@ add_executable(object_detection
   src/node.cpp
 )
 
+add_executable(save_pointcloud
+  src/save_pointcloud.cpp
+)
+
 ament_target_dependencies(object_detection
+  rclcpp
+  sensor_msgs
+  pcl_conversions
+)
+
+ament_target_dependencies(save_pointcloud
   rclcpp
   sensor_msgs
   pcl_conversions
@@ -108,10 +122,19 @@ target_include_directories(
   include
 )
 
+target_include_directories(
+  save_pointcloud
+  PUBLIC
+  include
+)
+
 target_link_libraries(object_detection ${PCL_LIBRARIES} detection_library)
+
+target_link_libraries(save_pointcloud ${PCL_LIBRARIES} detection_library)
 
 install(TARGETS
   object_detection
+  save_pointcloud
   DESTINATION lib/${PROJECT_NAME})
 
 ament_package()

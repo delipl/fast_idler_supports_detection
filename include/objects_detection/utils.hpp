@@ -9,13 +9,23 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <rclcpp/rclcpp.hpp>
 
+#include <vector>
+
 using Point = pcl::PointXYZ;
 using Cloud = pcl::PointCloud<Point>;
 using CloudPtr = Cloud::Ptr;
+using CloudPtrs = std::vector<CloudPtr>;
 
 using PointI = pcl::PointXYZI;
 using CloudI = pcl::PointCloud<PointI>;
 using CloudIPtr = CloudI::Ptr;
+using CloudIPtrs = std::vector<CloudIPtr>;
+
+using Normal = pcl::PointCloud<pcl::Normal>;
+using NormalPtr = Normal::Ptr;
+using NormalPtrs = std::vector<NormalPtr>;
+using CloudNormal = pcl::PointCloud<Normal>;
+using CloudNormalPtr = CloudNormal::Ptr;
 
 using rclcppCloud = sensor_msgs::msg::PointCloud2;
 using rclcppCloudSharedPtr = rclcppCloud::SharedPtr;
@@ -26,4 +36,7 @@ rclcppCloud convert_cloud_ptr_to_point_cloud2(CloudPtr cloud, const std::string&
 rclcppCloud convert_cloudi_ptr_to_point_cloud2(CloudIPtr cloud, const std::string& frame_name, rclcpp::Node *node);
 
 void print_diffrence(const std::string &logger_name, CloudPtr cloud1, CloudPtr cloud2);
-CloudPtr rotate(CloudPtr cloud, double angle);
+CloudPtr rotate(CloudPtr cloud, double roll, double pitch, double yaw);
+
+CloudPtr remove_intensivity_from_cloud(CloudIPtr cloud);
+CloudPtr translate(CloudPtr cloud, double x, double y, double z);

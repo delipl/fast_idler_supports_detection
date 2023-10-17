@@ -1,6 +1,6 @@
 #include <objects_detection/cluster_extraction.hpp>
 
-std::vector<CloudIPtr> ClusterExtraction::euclidean(CloudPtr cloud, double tolerance, std::size_t min_size,
+CloudIPtrs ClusterExtraction::euclidean(CloudPtr cloud, double tolerance, std::size_t min_size,
                                                     std::size_t max_size) const {
     CloudPtr cloud_filtered(cloud);
     pcl::search::KdTree<Point>::Ptr tree(new pcl::search::KdTree<Point>);
@@ -16,7 +16,7 @@ std::vector<CloudIPtr> ClusterExtraction::euclidean(CloudPtr cloud, double toler
     ec.extract(cluster_indices);
 
     int j = 0;
-    std::vector<CloudIPtr> clouds;
+    CloudIPtrs clouds;
     for (const auto& cluster : cluster_indices) {
         CloudIPtr cloud_cluster(new CloudI);
         for (const auto& idx : cluster.indices) {
@@ -31,14 +31,12 @@ std::vector<CloudIPtr> ClusterExtraction::euclidean(CloudPtr cloud, double toler
         cloud_cluster->height = 1;
         cloud_cluster->is_dense = true;
 
-        RCLCPP_INFO_STREAM(rclcpp::get_logger("cluster_extraction"),
-                           "PointCloud representing the Cluster: " << cloud_cluster->size() << " data points.");
         clouds.push_back(cloud_cluster);
         ++j;
     }
     return clouds;
 }
 
-std::vector<CloudIPtr> ClusterExtraction::euclidean(CloudPtr cloud) const {
+CloudIPtrs ClusterExtraction::euclidean(CloudPtr cloud) const {
     return euclidean(cloud, euclidean_tolerance, euclidean_min_size, euclidean_max_size);
 }

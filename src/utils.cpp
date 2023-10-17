@@ -41,10 +41,32 @@ void print_diffrence(const std::string &logger_name, CloudPtr cloud1, CloudPtr c
                        "Removed: " << removed_points_count << " points.");
 }
 
-CloudPtr rotate(CloudPtr cloud, double angle) {
+CloudPtr rotate(CloudPtr cloud, double roll, double pitch, double yaw) {
     CloudPtr transformed_cloud(new Cloud);
     Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
-    transform_2.rotate (Eigen::AngleAxisf (angle, Eigen::Vector3f::UnitY()));
+    transform_2.rotate (Eigen::AngleAxisf (roll, Eigen::Vector3f::UnitX()));
+    transform_2.rotate (Eigen::AngleAxisf (pitch, Eigen::Vector3f::UnitY()));
+    transform_2.rotate (Eigen::AngleAxisf (yaw, Eigen::Vector3f::UnitZ()));
     pcl::transformPointCloud (*cloud, *transformed_cloud, transform_2);
     return transformed_cloud;
+}
+
+CloudPtr translate(CloudPtr cloud, double x, double y, double z) {
+    CloudPtr transformed_cloud(new Cloud);
+    Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
+    transform_2.translation() << x, y, z;
+    pcl::transformPointCloud (*cloud, *transformed_cloud, transform_2);
+    return transformed_cloud;
+}
+
+CloudPtr remove_intensivity_from_cloud(CloudIPtr cloud){
+    CloudPtr new_cloud(new Cloud);
+    for(const auto &point: cloud->points){
+        Point new_point;
+        new_point.x = point.x;
+        new_point.y = point.y;
+        new_point.z = point.z;
+        new_cloud->points.push_back(new_point);
+    }
+    return new_cloud;
 }
