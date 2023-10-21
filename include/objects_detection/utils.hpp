@@ -30,6 +30,9 @@ using CloudNormalPtr = CloudNormal::Ptr;
 using rclcppCloud = sensor_msgs::msg::PointCloud2;
 using rclcppCloudSharedPtr = rclcppCloud::SharedPtr;
 
+using Histogram = std::vector<std::vector<std::size_t>>;
+
+
 CloudPtr convert_point_cloud2_to_cloud_ptr(rclcppCloudSharedPtr pc2);
 
 rclcppCloud convert_cloud_ptr_to_point_cloud2(CloudPtr cloud, const std::string& frame_name, rclcpp::Node *node);

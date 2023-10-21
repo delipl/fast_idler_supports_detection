@@ -28,9 +28,6 @@ TEST(PCDFileTest, LoadPCDFile) {
     auto load_result = load_test_cloud(cloud);
     ASSERT_EQ(load_result, 0);
     (void)load_result;
-    myV a(1, 2,3);
-    myV b(-1,-2,-3);
-    EXPECT_EQ(a-b, {0, 0, 0});
 
     EXPECT_EQ(cloud->size(), (std::size_t)5669);
 }

@@ -17,29 +17,7 @@ void ObjectDetection::declare_parameters() {
     declare_parameter("general.transform.y", "0.0");
     declare_parameter("general.transform.z", "1.35");
 
-    declare_parameter("down_sampler.leaf_size", "0.05");
-
-    declare_parameter("outlier_remover.statistical.neighbors_count", "50");
-    declare_parameter("outlier_remover.statistical.stddev_mul_thresh", "-0.01");
-
-    declare_parameter("outlier_remover.radius_outlier.neighbors_count", "8");
-    declare_parameter("outlier_remover.radius_outlier.radius", "0.1");
-
-    declare_parameter("outlier_remover.radius_vertical_outlier.neighbors_count", "8");
-    declare_parameter("outlier_remover.radius_vertical_outlier.radius", "0.1");
-    declare_parameter("outlier_remover.radius_vertical_outlier.diff", "0.07");
-
-    declare_parameter("ground_remover.dummy.threshold", "0.1");
-    declare_parameter("ground_remover.planar_segmentation.threshold", "0.15");
-    declare_parameter("ground_remover.planar_segmentation.eps_angle", "0.01");
-
-    declare_parameter("clusteler_conveyor.euclidean.tolerance", "0.5");
-    declare_parameter("clusteler_conveyor.euclidean.min_size", "1000");
-    declare_parameter("clusteler_conveyor.euclidean.max_size", "5000");
-
-    declare_parameter("clusteler.euclidean.tolerance", "0.5");
-    declare_parameter("clusteler.euclidean.min_size", "20");
-    declare_parameter("clusteler.euclidean.max_size", "500");
+    declare_parameter("general.histogram.resolution", "0.01");
 }
 
 void ObjectDetection::get_parameters() {
@@ -52,40 +30,7 @@ void ObjectDetection::get_parameters() {
     y = std::stod(get_parameter("general.transform.y").as_string());
     z = std::stod(get_parameter("general.transform.z").as_string());
 
-    down_sampler.leaf_size = std::stod(get_parameter("down_sampler.leaf_size").as_string());
-
-    outlier_remover.statistical_neighbors_count =
-        std::stoi(get_parameter("outlier_remover.statistical.neighbors_count").as_string());
-    outlier_remover.statistical_stddev_mul_thresh =
-        std::stod(get_parameter("outlier_remover.statistical.stddev_mul_thresh").as_string());
-    outlier_remover.radius_outlier_neighbors_count =
-        std::stoi(get_parameter("outlier_remover.radius_outlier.neighbors_count").as_string());
-    outlier_remover.radius_outlier_radius =
-        std::stod(get_parameter("outlier_remover.radius_outlier.radius").as_string());
-
-    outlier_remover.radius_vertical_outlier_neighbors_count =
-        std::stoi(get_parameter("outlier_remover.radius_vertical_outlier.neighbors_count").as_string());
-    outlier_remover.radius_vertical_outlier_radius =
-        std::stod(get_parameter("outlier_remover.radius_vertical_outlier.radius").as_string());
-    outlier_remover.radius_vertical_outlier_diff =
-        std::stod(get_parameter("outlier_remover.radius_vertical_outlier.diff").as_string());
-
-    ground_remover.dummy_threshold = std::stod(get_parameter("ground_remover.dummy.threshold").as_string());
-    ground_remover.planar_segmentation_threshold =
-        std::stod(get_parameter("ground_remover.planar_segmentation.threshold").as_string());
-    ground_remover.planar_segmentation_eps_angle =
-        std::stod(get_parameter("ground_remover.planar_segmentation.eps_angle").as_string());
-
-    clusteler.euclidean_tolerance = std::stod(get_parameter("clusteler.euclidean.tolerance").as_string());
-    clusteler.euclidean_max_size = std::stoi(get_parameter("clusteler.euclidean.max_size").as_string());
-    clusteler.euclidean_min_size = std::stoi(get_parameter("clusteler.euclidean.min_size").as_string());
-
-    clusteler_conveyor.euclidean_tolerance =
-        std::stod(get_parameter("clusteler_conveyor.euclidean.tolerance").as_string());
-    clusteler_conveyor.euclidean_max_size =
-        std::stoi(get_parameter("clusteler_conveyor.euclidean.max_size").as_string());
-    clusteler_conveyor.euclidean_min_size =
-        std::stoi(get_parameter("clusteler_conveyor.euclidean.min_size").as_string());
+    histogram_resolution = std::stod(get_parameter("general.histogram.resolution").as_string());
 }
 
 void ObjectDetection::create_rclcpp_instances() {
@@ -97,6 +42,8 @@ void ObjectDetection::create_rclcpp_instances() {
     clustered_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered", 10);
     clustered_conveyor_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered_conveyor", 10);
     only_legs_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/only_legs", 10);
+
+    desity_histogram_pub_ = create_publisher<sensor_msgs::msg::Image>("inz/desity_histogram", 10);
 
     markers_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>("marker_array", 10);
 
@@ -119,74 +66,115 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     auto transformed_cloud = translate(rotate(cloud, roll, pitch, yaw), x, y, z);
 
     mid360_rotated_pub_->publish(convert_cloud_ptr_to_point_cloud2(transformed_cloud, frame, this));
-    auto removed_outliers = outlier_remover.radius_outlier(transformed_cloud);
-    outlier_removal_pub_->publish(convert_cloud_ptr_to_point_cloud2(removed_outliers, frame, this));
+    auto tunneled_cloud = remove_points_beyond_tunnel(transformed_cloud);
+    leaf_down_sampling_pub_->publish(convert_cloud_ptr_to_point_cloud2(tunneled_cloud, frame, this));
 
-    auto ground_removed = ground_remover.dummy(removed_outliers);
-    without_ground_pub_->publish(convert_cloud_ptr_to_point_cloud2(ground_removed, frame, this));
+    auto histogram = create_histogram(tunneled_cloud, histogram_resolution);
 
-    CloudIPtrs clustered_clouds = clusteler_conveyor.euclidean(ground_removed);
-    CloudIPtr merged_clustered_cloud(new CloudI);
-    for (auto& clustered_cloud : clustered_clouds) {
-        if (clustered_cloud->size()) {
-            *merged_clustered_cloud += *clustered_cloud;
-        }
-    }
-    clustered_conveyor_pub_->publish(convert_cloudi_ptr_to_point_cloud2(merged_clustered_cloud, frame, this));
-    auto merged_clustered_cloud_no_color = remove_intensivity_from_cloud(merged_clustered_cloud);
-    auto verical_points = outlier_remover.radius_vertical_outlier(merged_clustered_cloud_no_color);
-    only_legs_pub_->publish(convert_cloud_ptr_to_point_cloud2(verical_points, frame, this));
-
-    CloudIPtrs legs = clusteler.euclidean(verical_points);
-
-    CloudIPtr merged_legs(new CloudI);
-    for (auto& clustered_cloud : legs) {
-        if (clustered_cloud->size()) {
-            *merged_legs += *clustered_cloud;
-        }
-    }
-    clustered_pub_->publish(convert_cloudi_ptr_to_point_cloud2(merged_legs, frame, this));
-
-    auto marker_array_msg = std::make_shared<visualization_msgs::msg::MarkerArray>();
-    std::size_t count_ = 0;
-    for (const auto& leg : legs) {
-        Point mean{0.0, 0.0, 0.0};
-        for (const auto& point : leg->points) {
-            mean.x += point.x;
-            mean.y += point.y;
-            mean.z += point.z;
-        }
-        const auto& size = leg->points.size();
-        mean.x /= size;
-        mean.y /= size;
-        mean.z /= size;
-        visualization_msgs::msg::Marker marker;
-        marker.header.frame_id = "velodyne";
-        marker.ns = "cylinders";
-        marker.id = count_;
-        marker.type = visualization_msgs::msg::Marker::CYLINDER;
-        marker.action = visualization_msgs::msg::Marker::ADD;
-        marker.pose.position.x = mean.x;
-        marker.pose.position.y = mean.y;
-        marker.pose.position.z = mean.z;
-        marker.scale.x = 0.2;
-        marker.scale.y = 0.2;
-        marker.scale.z = 0.5;  // Height of the cylinder
-        marker.color.a = 1.0;  // Alpha
-        marker.color.r = 0.0;  // Red
-        marker.color.g = 0.0;  // Green
-        marker.color.b = 1.0;  // Blue
-        count_++;
-        marker_array_msg->markers.push_back(marker);
-    }
-    if (marker_array_msg->markers.size()) {
-        marker_array_msg->markers.front().action = visualization_msgs::msg::Marker::DELETEALL;
-        markers_pub_->publish(*marker_array_msg);
-        marker_array_msg->markers.front().action = visualization_msgs::msg::Marker::ADD;
-        markers_pub_->publish(*marker_array_msg);
-    }
+    auto dencities = count_densities(histogram);
+    desity_histogram_pub_->publish(create_image_from_histogram(histogram));
+    // save_dencities_to_file(dencities, "/home/rabin/Documents/obsidian/inz/inżynierka/ws/data.txt");
 
     auto end = std::chrono::high_resolution_clock::now();
     auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
     RCLCPP_INFO_STREAM(get_logger(), "Callback Took: " << microseconds / 10e6 << "s");
+}
+
+CloudPtr ObjectDetection::remove_points_beyond_tunnel(CloudPtr cloud) {
+    CloudPtr new_cloud(new Cloud);
+    for (const auto& point : cloud->points) {
+        if (std::abs(point.y) < 2.0 and point.z < 2.0) {
+            new_cloud->push_back(point);
+        }
+    }
+    new_cloud->width = 1;
+    new_cloud->height = new_cloud->size();
+    return new_cloud;
+}
+// 4x2m tunnel size
+Histogram ObjectDetection::create_histogram(CloudPtr cloud, double resolution) {
+    Histogram histogram_image;
+    const auto width = static_cast<std::size_t>(TUNNEL_WIDTH / resolution);
+    const auto height = static_cast<std::size_t>(TUNNEL_HEIGHT / resolution);
+    histogram_image.resize(height);
+
+    for (auto& column : histogram_image) {
+        column.resize(width);
+    }
+
+    for (const auto& point : cloud->points) {
+        const auto image_width_pos = static_cast<std::size_t>((TUNNEL_WIDTH / 2 + point.y) / resolution);
+        const auto image_height_pos = static_cast<std::size_t>(point.z / resolution);
+
+        if (image_width_pos >= width or image_height_pos >= height) {
+            continue;
+        }
+
+        ++histogram_image[image_height_pos][image_width_pos];
+    }
+    return histogram_image;
+}
+
+sensor_msgs::msg::Image ObjectDetection::create_image_from_histogram(const Histogram& histogram) {
+    sensor_msgs::msg::Image image_msg;
+    image_msg.height = histogram.size();
+    image_msg.width = histogram.begin()->size();
+    image_msg.encoding = "mono8";
+
+    image_msg.step = image_msg.width;
+    image_msg.data.resize(image_msg.height * image_msg.step, 0);
+    // TODO: another function
+    auto max_element = std::numeric_limits<std::size_t>::min();
+    for (const auto& col : histogram) {
+        const auto col_max = *std::max_element(col.begin(), col.end());
+        max_element = std::max(col_max, max_element);
+    }
+
+    for (size_t i = 0; i < image_msg.height; ++i) {
+        for (size_t j = 0; j < histogram[i].size(); ++j) {
+            uint8_t intensity = static_cast<uint8_t>(255 * histogram[i][j] / max_element);
+            image_msg.data[(image_msg.height - i - 1) * image_msg.step + j] = intensity;
+        }
+    }
+
+    return image_msg;
+}
+
+std::vector<std::size_t> ObjectDetection::count_densities(const Histogram& histogram) {
+    // TODO: another function
+    auto max_element = std::numeric_limits<std::size_t>::min();
+    for (const auto& col : histogram) {
+        const auto col_max = *std::max_element(col.begin(), col.end());
+        max_element = col_max > max_element ? col_max : max_element;
+    }
+    std::vector<std::size_t> densities;
+    densities.resize(max_element + 1);
+    std::ofstream file("/home/rabin/Documents/obsidian/inz/inżynierka/ws/data.txt");
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open the file." << std::endl;
+        return std::vector<std::size_t>();
+    }
+    for (const auto& col : histogram) {
+        for (const auto& density : col) {
+            if (density) 
+             file << density << "\n";
+            ++densities[density];
+        }
+    }
+    file.close();
+
+    return densities;
+}
+
+void ObjectDetection::save_dencities_to_file(const std::vector<std::size_t>& dencities, const std::string& path) {
+    std::ofstream file(path);
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open the file." << std::endl;
+        return;
+    }
+
+    for (const auto& d : dencities) {
+        file << d << "\n";
+    }
+    file.close();
 }
