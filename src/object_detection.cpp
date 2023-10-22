@@ -17,9 +17,20 @@ void ObjectDetection::declare_parameters() {
     declare_parameter("general.transform.y", "0.0");
     declare_parameter("general.transform.z", "1.35");
 
+    declare_parameter("general.tunnel.height", "1.5");
+    declare_parameter("general.tunnel.width", "3.00");
+
     declare_parameter("general.histogram.resolution", "0.1");
     declare_parameter("general.histogram.min", "15");
     declare_parameter("general.histogram.max", "30");
+    declare_parameter("general.histogram.column_density_threshold", "30");
+
+    declare_parameter("outlier_remover.radius_outlier.neighbors_count", "8");
+    declare_parameter("outlier_remover.radius_outlier.radius", "0.1");
+
+    declare_parameter("clusteler.euclidean.tolerance", "0.5");
+    declare_parameter("clusteler.euclidean.min_size", "20");
+    declare_parameter("clusteler.euclidean.max_size", "500");
 }
 
 void ObjectDetection::get_parameters() {
@@ -32,9 +43,22 @@ void ObjectDetection::get_parameters() {
     y = std::stod(get_parameter("general.transform.y").as_string());
     z = std::stod(get_parameter("general.transform.z").as_string());
 
+    tunnel_width = std::stod(get_parameter("general.tunnel.width").as_string());
+    tunnel_height = std::stod(get_parameter("general.tunnel.height").as_string());
+
     histogram_resolution = std::stod(get_parameter("general.histogram.resolution").as_string());
     histogram_min = std::stoi(get_parameter("general.histogram.min").as_string());
     histogram_max = std::stoi(get_parameter("general.histogram.max").as_string());
+    column_density_threshold = std::stoi(get_parameter("general.histogram.column_density_threshold").as_string());
+
+    outlier_remover.radius_outlier_neighbors_count =
+        std::stoi(get_parameter("outlier_remover.radius_outlier.neighbors_count").as_string());
+    outlier_remover.radius_outlier_radius =
+        std::stod(get_parameter("outlier_remover.radius_outlier.radius").as_string());
+
+    clusteler.euclidean_tolerance = std::stod(get_parameter("clusteler.euclidean.tolerance").as_string());
+    clusteler.euclidean_max_size = std::stoi(get_parameter("clusteler.euclidean.max_size").as_string());
+    clusteler.euclidean_min_size = std::stoi(get_parameter("clusteler.euclidean.min_size").as_string());
 }
 
 void ObjectDetection::create_rclcpp_instances() {
@@ -80,12 +104,69 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     density_histogram_pub_->publish(create_image_from_histogram(histogram));
 
     auto clustered_histogram = threshold_histogram(histogram, histogram_min, histogram_max);
-    density_clustered_histogram_pub_->publish(create_image_from_histogram(clustered_histogram));
+    auto removed_columns = remove_low_density_colums(clustered_histogram, column_density_threshold);
+    density_clustered_histogram_pub_->publish(create_image_from_histogram(removed_columns));
 
-    auto low_density_cloud = filter_with_dencity_on_x_image(tunneled_cloud, clustered_histogram, histogram_resolution);
+    auto low_density_cloud = filter_with_dencity_on_x_image(tunneled_cloud, removed_columns, histogram_resolution);
     without_ground_pub_->publish(convert_cloud_ptr_to_point_cloud2(low_density_cloud, frame, this));
 
+    auto removed_outliers = outlier_remover.radius_outlier(low_density_cloud);
+    outlier_removal_pub_->publish(convert_cloud_ptr_to_point_cloud2(removed_outliers, frame, this));
+
+    CloudIPtrs clustered_clouds = clusteler.euclidean(removed_outliers);
+    CloudIPtr merged_clustered_cloud(new CloudI);
+    for (auto& clustered_cloud : clustered_clouds) {
+        if (clustered_cloud->size()) {
+            *merged_clustered_cloud += *clustered_cloud;
+        }
+    }
+    clustered_conveyor_pub_->publish(convert_cloudi_ptr_to_point_cloud2(merged_clustered_cloud, frame, this));
+    max_detected_legs = std::max(max_detected_legs, clustered_clouds.size());
     // save_dencities_to_file(dencities, "/home/rabin/Documents/obsidian/inz/inżynierka/ws/data.txt");
+    auto marker_array_msg = std::make_shared<visualization_msgs::msg::MarkerArray>();
+    std::size_t count_ = 0;
+    for (const auto& leg : clustered_clouds) {
+        Point mean{0.0, 0.0, 0.0};
+        for (const auto& point : leg->points) {
+            mean.x += point.x;
+            mean.y += point.y;
+            mean.z += point.z;
+        }
+        const auto& size = leg->points.size();
+        mean.x /= size;
+        mean.y /= size;
+        mean.z /= size;
+        visualization_msgs::msg::Marker marker;
+        marker.header.frame_id = "velodyne";
+        marker.ns = "cylinders";
+        marker.id = count_;
+        marker.type = visualization_msgs::msg::Marker::CYLINDER;
+        marker.action = visualization_msgs::msg::Marker::ADD;
+        marker.pose.position.x = mean.x;
+        marker.pose.position.y = mean.y;
+        marker.pose.position.z = mean.z;
+        marker.scale.x = 0.2;
+        marker.scale.y = 0.2;
+        marker.scale.z = 0.5;  // Height of the cylinder
+        marker.color.a = 1.0;  // Alpha
+        marker.color.r = 0.0;  // Red
+        marker.color.g = 0.0;  // Green
+        marker.color.b = 1.0;  // Blue
+        marker.lifetime = rclcpp::Duration(0 , 2000);
+        count_++;
+        marker_array_msg->markers.push_back(marker);
+
+    }
+    for(std::size_t i = clustered_clouds.size()-1; i < max_detected_legs; ++i){
+        visualization_msgs::msg::Marker marker;
+        marker.header.frame_id = "velodyne";
+        marker.ns = "cylinders";
+        marker.id = i;
+        marker.action = visualization_msgs::msg::Marker::DELETE;
+        marker_array_msg->markers.push_back(marker);
+    }
+    markers_pub_->publish(*marker_array_msg);
+
 
     auto end = std::chrono::high_resolution_clock::now();
     auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
@@ -95,7 +176,7 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
 CloudPtr ObjectDetection::remove_points_beyond_tunnel(CloudPtr cloud) {
     CloudPtr new_cloud(new Cloud);
     for (const auto& point : cloud->points) {
-        if (std::abs(point.y) < 2.0 and point.z < 2.0) {
+        if (std::abs(point.y) < tunnel_width-2.0 and point.z < tunnel_height) {
             new_cloud->push_back(point);
         }
     }
@@ -106,8 +187,8 @@ CloudPtr ObjectDetection::remove_points_beyond_tunnel(CloudPtr cloud) {
 // 4x2m tunnel size
 Histogram ObjectDetection::create_histogram(CloudPtr cloud, double resolution) {
     Histogram histogram_image;
-    const auto width = static_cast<std::size_t>(TUNNEL_WIDTH / resolution);
-    const auto height = static_cast<std::size_t>(TUNNEL_HEIGHT / resolution);
+    const auto width = static_cast<std::size_t>(tunnel_width / resolution);
+    const auto height = static_cast<std::size_t>(tunnel_height / resolution);
     histogram_image.resize(height);
 
     for (auto& column : histogram_image) {
@@ -115,7 +196,7 @@ Histogram ObjectDetection::create_histogram(CloudPtr cloud, double resolution) {
     }
 
     for (const auto& point : cloud->points) {
-        const auto image_width_pos = static_cast<std::size_t>((TUNNEL_WIDTH / 2 + point.y) / resolution);
+        const auto image_width_pos = static_cast<std::size_t>((tunnel_width / 2 + point.y) / resolution);
         const auto image_height_pos = static_cast<std::size_t>(point.z / resolution);
 
         if (image_width_pos >= width or image_height_pos >= height) {
@@ -141,9 +222,12 @@ sensor_msgs::msg::Image ObjectDetection::create_image_from_histogram(const Histo
         const auto col_max = *std::max_element(col.begin(), col.end());
         max_element = std::max(col_max, max_element);
     }
+    if (not max_element) {
+        return image_msg;
+    }
 
-    for (size_t i = 0; i < image_msg.height; ++i) {
-        for (size_t j = 0; j < histogram[i].size(); ++j) {
+    for (std::size_t i = 0; i < image_msg.height; ++i) {
+        for (std::size_t j = 0; j < histogram[i].size(); ++j) {
             uint8_t intensity = static_cast<uint8_t>(255 * histogram[i][j] / max_element);
             image_msg.data[(image_msg.height - i - 1) * image_msg.step + j] = intensity;
         }
@@ -192,12 +276,12 @@ void ObjectDetection::save_dencities_to_file(const std::vector<std::size_t>& den
 
 CloudPtr ObjectDetection::filter_with_dencity_on_x_image(CloudPtr cloud, const Histogram& histogram,
                                                          double resolution) {
-    const auto width = static_cast<std::size_t>(TUNNEL_WIDTH / resolution);
-    const auto height = static_cast<std::size_t>(TUNNEL_HEIGHT / resolution);
+    const auto width = static_cast<std::size_t>(tunnel_width / resolution);
+    const auto height = static_cast<std::size_t>(tunnel_height / resolution);
 
     auto low_density_cloud = CloudPtr(new Cloud);
     for (const auto& point : cloud->points) {
-        const auto image_width_pos = static_cast<std::size_t>((TUNNEL_WIDTH / 2 + point.y) / resolution);
+        const auto image_width_pos = static_cast<std::size_t>((tunnel_width / 2 + point.y) / resolution);
         const auto image_height_pos = static_cast<std::size_t>(point.z / resolution);
 
         if (image_width_pos >= width or image_height_pos >= height) {
@@ -207,8 +291,8 @@ CloudPtr ObjectDetection::filter_with_dencity_on_x_image(CloudPtr cloud, const H
             low_density_cloud->points.push_back(point);
         }
     }
-    low_density_cloud->width = 1;
-    low_density_cloud->height = low_density_cloud->size();
+    low_density_cloud->width = low_density_cloud->size();
+    low_density_cloud->height = 1;
     return low_density_cloud;
 }
 
@@ -221,6 +305,24 @@ Histogram ObjectDetection::threshold_histogram(const Histogram& histogram, std::
                 density = 0;
             }
         }
+    }
+    return clustered_histogram;
+}
+
+Histogram ObjectDetection::remove_low_density_colums(const Histogram& histogram, std::size_t threshold) {
+    auto clustered_histogram(histogram);
+
+    for (std::size_t i = 0; i < clustered_histogram[0].size(); ++i) {
+        std::size_t sum = 0;
+        for (std::size_t j = 0; j < clustered_histogram.size(); ++j) {
+            sum += clustered_histogram[j][i];
+        }
+        if (sum < threshold) {
+            for (std::size_t j = 0; j < clustered_histogram.size(); ++j) {
+                clustered_histogram[j][i] = 0;
+            }
+        }
+        // RCLCPP_INFO_STREAM(get_logger(), "Column i: " << i << " has sum: " << sum);
     }
     return clustered_histogram;
 }

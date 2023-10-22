@@ -13,6 +13,7 @@
 
 #include <geometry_msgs/msg/pose.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp/duration.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
@@ -25,9 +26,6 @@
 
 using namespace std::chrono_literals;
 
-constexpr double TUNNEL_WIDTH = 4.0;
-constexpr double TUNNEL_HEIGHT = 1.2;
-
 class ObjectDetection : public rclcpp::Node {
    public:
     ObjectDetection();
@@ -37,6 +35,9 @@ class ObjectDetection : public rclcpp::Node {
     void get_parameters();
 
     std::string pointcloud_topic_name;
+
+    double tunnel_width;
+    double tunnel_height;
 
     double roll;
     double pitch;
@@ -48,6 +49,9 @@ class ObjectDetection : public rclcpp::Node {
     double histogram_resolution;
     std::size_t histogram_min;
     std::size_t histogram_max;
+    std::size_t column_density_threshold;
+
+    std::size_t max_detected_legs = 0;
 
     void create_rclcpp_instances();
     void lidar_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
@@ -75,6 +79,7 @@ class ObjectDetection : public rclcpp::Node {
     CloudPtr remove_points_beyond_tunnel(CloudPtr cloud);
     CloudPtr filter_with_dencity_on_x_image(CloudPtr cloud, const Histogram &histogram, double resolution);
     Histogram create_histogram(CloudPtr cloud, double resolution);
+    Histogram remove_low_density_colums(const Histogram &histogram, std::size_t threshold);
     Histogram threshold_histogram(const Histogram &histogram, std::size_t min, std::size_t max);
 
     std::vector<std::size_t> count_densities(const Histogram &histogram);
