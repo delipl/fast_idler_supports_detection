@@ -8,7 +8,7 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <pcl_conversions/pcl_conversions.h>
 #include <rclcpp/rclcpp.hpp>
-
+#include <visualization_msgs/msg/marker_array.hpp>
 #include <vector>
 
 using Point = pcl::PointXYZ;
@@ -31,6 +31,7 @@ using rclcppCloud = sensor_msgs::msg::PointCloud2;
 using rclcppCloudSharedPtr = rclcppCloud::SharedPtr;
 
 using Histogram = std::vector<std::vector<std::size_t>>;
+using MarkersPtr = std::shared_ptr<visualization_msgs::msg::MarkerArray>;
 
 
 CloudPtr convert_point_cloud2_to_cloud_ptr(rclcppCloudSharedPtr pc2);

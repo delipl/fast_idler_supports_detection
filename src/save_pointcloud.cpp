@@ -24,10 +24,10 @@ class PointCloudListener : public rclcpp::Node {
         // Konwersja PointCloud2 do chmury punktów PCL
         auto cloud{convert_point_cloud2_to_cloud_ptr(msg)};
         pcl::PCDWriter writer;
-
-        writer.write<Point>(dest_file_name_, *cloud);
-        RCLCPP_INFO(this->get_logger(), "PointCloud saved to %s", dest_file_name_.c_str());
-        rclcpp::shutdown();
+        const auto dest_file_name_temp = dest_file_name_ + "_" + std::to_string(msg->header.stamp.nanosec) + ".pcd";
+        writer.write<Point>(dest_file_name_temp, *cloud);
+        RCLCPP_INFO(this->get_logger(), "PointCloud saved to %s", dest_file_name_temp.c_str());
+        // rclcpp::shutdown();
     }
 };
 

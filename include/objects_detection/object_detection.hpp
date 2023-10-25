@@ -85,5 +85,7 @@ class ObjectDetection : public rclcpp::Node {
     std::vector<std::size_t> count_densities(const Histogram &histogram);
     sensor_msgs::msg::Image create_image_from_histogram(const Histogram &histogram);
 
+    MarkersPtr make_markers_from_pointclouds(const CloudIPtrs &clustered_clouds);
+
     void save_dencities_to_file(const std::vector<std::size_t> &dencities, const std::string &path);
 };

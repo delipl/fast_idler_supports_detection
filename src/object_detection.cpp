@@ -123,50 +123,9 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     clustered_conveyor_pub_->publish(convert_cloudi_ptr_to_point_cloud2(merged_clustered_cloud, frame, this));
     max_detected_legs = std::max(max_detected_legs, clustered_clouds.size());
     // save_dencities_to_file(dencities, "/home/rabin/Documents/obsidian/inz/inżynierka/ws/data.txt");
-    auto marker_array_msg = std::make_shared<visualization_msgs::msg::MarkerArray>();
-    std::size_t count_ = 0;
-    for (const auto& leg : clustered_clouds) {
-        Point mean{0.0, 0.0, 0.0};
-        for (const auto& point : leg->points) {
-            mean.x += point.x;
-            mean.y += point.y;
-            mean.z += point.z;
-        }
-        const auto& size = leg->points.size();
-        mean.x /= size;
-        mean.y /= size;
-        mean.z /= size;
-        visualization_msgs::msg::Marker marker;
-        marker.header.frame_id = "velodyne";
-        marker.ns = "cylinders";
-        marker.id = count_;
-        marker.type = visualization_msgs::msg::Marker::CYLINDER;
-        marker.action = visualization_msgs::msg::Marker::ADD;
-        marker.pose.position.x = mean.x;
-        marker.pose.position.y = mean.y;
-        marker.pose.position.z = mean.z;
-        marker.scale.x = 0.2;
-        marker.scale.y = 0.2;
-        marker.scale.z = 0.5;  // Height of the cylinder
-        marker.color.a = 1.0;  // Alpha
-        marker.color.r = 0.0;  // Red
-        marker.color.g = 0.0;  // Green
-        marker.color.b = 1.0;  // Blue
-        marker.lifetime = rclcpp::Duration(0 , 2000);
-        count_++;
-        marker_array_msg->markers.push_back(marker);
 
-    }
-    for(std::size_t i = clustered_clouds.size()-1; i < max_detected_legs; ++i){
-        visualization_msgs::msg::Marker marker;
-        marker.header.frame_id = "velodyne";
-        marker.ns = "cylinders";
-        marker.id = i;
-        marker.action = visualization_msgs::msg::Marker::DELETE;
-        marker_array_msg->markers.push_back(marker);
-    }
+    auto marker_array_msg = make_markers_from_pointclouds(clustered_clouds);
     markers_pub_->publish(*marker_array_msg);
-
 
     auto end = std::chrono::high_resolution_clock::now();
     auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
@@ -176,7 +135,7 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
 CloudPtr ObjectDetection::remove_points_beyond_tunnel(CloudPtr cloud) {
     CloudPtr new_cloud(new Cloud);
     for (const auto& point : cloud->points) {
-        if (std::abs(point.y) < tunnel_width-2.0 and point.z < tunnel_height) {
+        if (std::abs(point.y) < tunnel_width - 2.0 and point.z < tunnel_height) {
             new_cloud->push_back(point);
         }
     }
@@ -325,4 +284,49 @@ Histogram ObjectDetection::remove_low_density_colums(const Histogram& histogram,
         // RCLCPP_INFO_STREAM(get_logger(), "Column i: " << i << " has sum: " << sum);
     }
     return clustered_histogram;
+}
+
+MarkersPtr ObjectDetection::make_markers_from_pointclouds(const CloudIPtrs& clustered_clouds) {
+    auto marker_array_msg = std::make_shared<visualization_msgs::msg::MarkerArray>();
+    std::size_t count_ = 0;
+    for (const auto& leg : clustered_clouds) {
+        Point mean{0.0, 0.0, 0.0};
+        for (const auto& point : leg->points) {
+            mean.x += point.x;
+            mean.y += point.y;
+            mean.z += point.z;
+        }
+        const auto& size = leg->points.size();
+        mean.x /= size;
+        mean.y /= size;
+        mean.z /= size;
+        visualization_msgs::msg::Marker marker;
+        marker.header.frame_id = "velodyne";
+        marker.ns = "cylinders";
+        marker.id = count_;
+        marker.type = visualization_msgs::msg::Marker::CYLINDER;
+        marker.action = visualization_msgs::msg::Marker::ADD;
+        marker.pose.position.x = mean.x;
+        marker.pose.position.y = mean.y;
+        marker.pose.position.z = mean.z;
+        marker.scale.x = 0.2;
+        marker.scale.y = 0.2;
+        marker.scale.z = 0.5;  // Height of the cylinder
+        marker.color.a = 1.0;  // Alpha
+        marker.color.r = 0.0;  // Red
+        marker.color.g = 0.0;  // Green
+        marker.color.b = 1.0;  // Blue
+        marker.lifetime = rclcpp::Duration(0, 2000);
+        count_++;
+        marker_array_msg->markers.push_back(marker);
+    }
+    for (std::size_t i = clustered_clouds.size() - 1; i < max_detected_legs; ++i) {
+        visualization_msgs::msg::Marker marker;
+        marker.header.frame_id = "velodyne";
+        marker.ns = "cylinders";
+        marker.id = i;
+        marker.action = visualization_msgs::msg::Marker::DELETE;
+        marker_array_msg->markers.push_back(marker);
+    }
+    return marker_array_msg;
 }
