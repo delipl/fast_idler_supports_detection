@@ -12,8 +12,8 @@
 #include <pcl_conversions/pcl_conversions.h>
 
 #include <geometry_msgs/msg/pose.hpp>
-#include <rclcpp/rclcpp.hpp>
 #include <rclcpp/duration.hpp>
+#include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
@@ -38,6 +38,7 @@ class ObjectDetection : public rclcpp::Node {
 
     double tunnel_width;
     double tunnel_height;
+    double tunnel_length;
 
     double roll;
     double pitch;
@@ -46,10 +47,14 @@ class ObjectDetection : public rclcpp::Node {
     double x;
     double y;
     double z;
-    double histogram_resolution;
-    std::size_t histogram_min;
-    std::size_t histogram_max;
-    std::size_t column_density_threshold;
+    double forward_resolution;
+    std::size_t forward_histogram_min;
+    std::size_t forward_histogram_max;
+    std::size_t forward_column_density_threshold;
+
+    double ground_resolution;
+    std::size_t ground_histogram_min;
+    std::size_t ground_histogram_max;
 
     std::size_t max_detected_legs = 0;
 
@@ -59,7 +64,7 @@ class ObjectDetection : public rclcpp::Node {
     rclcpp::Subscription<rclcppCloud>::SharedPtr lidar_pc2_sub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr test_pc2_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr mid360_rotated_pub_;
-    rclcpp::Publisher<rclcppCloud>::SharedPtr leaf_down_sampling_pub_;
+    rclcpp::Publisher<rclcppCloud>::SharedPtr tunneled_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr outlier_removal_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr without_ground_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_pub_;
@@ -67,8 +72,10 @@ class ObjectDetection : public rclcpp::Node {
     rclcpp::Publisher<rclcppCloud>::SharedPtr only_legs_pub_;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr markers_pub_;
 
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr density_histogram_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr density_clustered_histogram_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr forward_density_histogram_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr forward_density_clustered_histogram_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr ground_density_histogram_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr ground_density_clustered_histogram_pub_;
 
     DownSampling down_sampler;
     OutlierRemoval outlier_remover;
@@ -77,8 +84,10 @@ class ObjectDetection : public rclcpp::Node {
     ClusterExtraction clusteler_conveyor;
 
     CloudPtr remove_points_beyond_tunnel(CloudPtr cloud);
-    CloudPtr filter_with_dencity_on_x_image(CloudPtr cloud, const Histogram &histogram, double resolution);
-    Histogram create_histogram(CloudPtr cloud, double resolution);
+    CloudPtr filter_with_dencity_on_x_image(CloudPtr cloud, const Histogram &histogram, double resolution, double width,
+                                            double height);
+    Histogram create_histogram(CloudPtr cloud, double resolution,
+                                                         double width, double height);
     Histogram remove_low_density_colums(const Histogram &histogram, std::size_t threshold);
     Histogram threshold_histogram(const Histogram &histogram, std::size_t min, std::size_t max);
 

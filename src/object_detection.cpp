@@ -19,11 +19,16 @@ void ObjectDetection::declare_parameters() {
 
     declare_parameter("general.tunnel.height", "1.5");
     declare_parameter("general.tunnel.width", "3.00");
+    declare_parameter("general.tunnel.length", "5.00");
 
-    declare_parameter("general.histogram.resolution", "0.1");
-    declare_parameter("general.histogram.min", "15");
-    declare_parameter("general.histogram.max", "30");
-    declare_parameter("general.histogram.column_density_threshold", "30");
+    declare_parameter("general.forward.histogram.resolution", "0.1");
+    declare_parameter("general.forward.histogram.min", "15");
+    declare_parameter("general.forward.histogram.max", "30");
+    declare_parameter("general.forward.histogram.column_density_threshold", "30");
+
+    declare_parameter("general.ground.histogram.resolution", "0.1");
+    declare_parameter("general.ground.histogram.min", "15");
+    declare_parameter("general.ground.histogram.max", "30");
 
     declare_parameter("outlier_remover.radius_outlier.neighbors_count", "8");
     declare_parameter("outlier_remover.radius_outlier.radius", "0.1");
@@ -45,11 +50,17 @@ void ObjectDetection::get_parameters() {
 
     tunnel_width = std::stod(get_parameter("general.tunnel.width").as_string());
     tunnel_height = std::stod(get_parameter("general.tunnel.height").as_string());
+    tunnel_length = std::stod(get_parameter("general.tunnel.length").as_string());
 
-    histogram_resolution = std::stod(get_parameter("general.histogram.resolution").as_string());
-    histogram_min = std::stoi(get_parameter("general.histogram.min").as_string());
-    histogram_max = std::stoi(get_parameter("general.histogram.max").as_string());
-    column_density_threshold = std::stoi(get_parameter("general.histogram.column_density_threshold").as_string());
+    forward_resolution = std::stod(get_parameter("general.forward.histogram.resolution").as_string());
+    forward_histogram_min = std::stoi(get_parameter("general.forward.histogram.min").as_string());
+    forward_histogram_max = std::stoi(get_parameter("general.forward.histogram.max").as_string());
+    forward_column_density_threshold =
+        std::stoi(get_parameter("general.forward.histogram.column_density_threshold").as_string());
+
+    ground_resolution = std::stod(get_parameter("general.ground.histogram.resolution").as_string());
+    ground_histogram_min = std::stoi(get_parameter("general.ground.histogram.min").as_string());
+    ground_histogram_max = std::stoi(get_parameter("general.ground.histogram.max").as_string());
 
     outlier_remover.radius_outlier_neighbors_count =
         std::stoi(get_parameter("outlier_remover.radius_outlier.neighbors_count").as_string());
@@ -64,15 +75,20 @@ void ObjectDetection::get_parameters() {
 void ObjectDetection::create_rclcpp_instances() {
     test_pc2_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/test", 10);
     mid360_rotated_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/rotated", 10);
-    leaf_down_sampling_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/down_sampled", 10);
+    tunneled_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/tunneled", 10);
     outlier_removal_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/outlier_removal", 10);
     without_ground_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/ground_removal", 10);
     clustered_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered", 10);
     clustered_conveyor_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered_conveyor", 10);
     only_legs_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/only_legs", 10);
 
-    density_histogram_pub_ = create_publisher<sensor_msgs::msg::Image>("inz/desity_histogram", 10);
-    density_clustered_histogram_pub_ = create_publisher<sensor_msgs::msg::Image>("inz/desity_clustered_histogram", 10);
+    forward_density_histogram_pub_ = create_publisher<sensor_msgs::msg::Image>("inz/forward_desity_histogram", 10);
+    forward_density_clustered_histogram_pub_ =
+        create_publisher<sensor_msgs::msg::Image>("inz/forward_desity_clustered_histogram", 10);
+
+    ground_density_histogram_pub_ = create_publisher<sensor_msgs::msg::Image>("inz/ground_desity_histogram", 10);
+    ground_density_clustered_histogram_pub_ =
+        create_publisher<sensor_msgs::msg::Image>("inz/ground_desity_clustered_histogram", 10);
 
     markers_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>("marker_array", 10);
 
@@ -96,18 +112,18 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
 
     mid360_rotated_pub_->publish(convert_cloud_ptr_to_point_cloud2(transformed_cloud, frame, this));
     auto tunneled_cloud = remove_points_beyond_tunnel(transformed_cloud);
-    leaf_down_sampling_pub_->publish(convert_cloud_ptr_to_point_cloud2(tunneled_cloud, frame, this));
+    tunneled_pub_->publish(convert_cloud_ptr_to_point_cloud2(tunneled_cloud, frame, this));
 
-    auto histogram = create_histogram(tunneled_cloud, histogram_resolution);
-
+    auto histogram = create_histogram(tunneled_cloud, forward_resolution, tunnel_width, tunnel_height);
     auto dencities = count_densities(histogram);
-    density_histogram_pub_->publish(create_image_from_histogram(histogram));
+    forward_density_histogram_pub_->publish(create_image_from_histogram(histogram));
 
-    auto clustered_histogram = threshold_histogram(histogram, histogram_min, histogram_max);
-    auto removed_columns = remove_low_density_colums(clustered_histogram, column_density_threshold);
-    density_clustered_histogram_pub_->publish(create_image_from_histogram(removed_columns));
+    auto clustered_histogram = threshold_histogram(histogram, forward_histogram_min, forward_histogram_max);
+    auto removed_columns = remove_low_density_colums(clustered_histogram, forward_column_density_threshold);
+    forward_density_clustered_histogram_pub_->publish(create_image_from_histogram(removed_columns));
 
-    auto low_density_cloud = filter_with_dencity_on_x_image(tunneled_cloud, removed_columns, histogram_resolution);
+    auto low_density_cloud = filter_with_dencity_on_x_image(tunneled_cloud, removed_columns, forward_resolution,
+                                                            tunnel_width, tunnel_height);
     without_ground_pub_->publish(convert_cloud_ptr_to_point_cloud2(low_density_cloud, frame, this));
 
     auto removed_outliers = outlier_remover.radius_outlier(low_density_cloud);
@@ -144,21 +160,21 @@ CloudPtr ObjectDetection::remove_points_beyond_tunnel(CloudPtr cloud) {
     return new_cloud;
 }
 // 4x2m tunnel size
-Histogram ObjectDetection::create_histogram(CloudPtr cloud, double resolution) {
+Histogram ObjectDetection::create_histogram(CloudPtr cloud, double resolution, double width, double height) {
     Histogram histogram_image;
-    const auto width = static_cast<std::size_t>(tunnel_width / resolution);
-    const auto height = static_cast<std::size_t>(tunnel_height / resolution);
-    histogram_image.resize(height);
+    const auto image_width = static_cast<std::size_t>(width / resolution);
+    const auto image_height = static_cast<std::size_t>(height / resolution);
+    histogram_image.resize(image_height);
 
     for (auto& column : histogram_image) {
-        column.resize(width);
+        column.resize(image_width);
     }
 
     for (const auto& point : cloud->points) {
         const auto image_width_pos = static_cast<std::size_t>((tunnel_width / 2 + point.y) / resolution);
         const auto image_height_pos = static_cast<std::size_t>(point.z / resolution);
 
-        if (image_width_pos >= width or image_height_pos >= height) {
+        if (image_width_pos >= image_width or image_height_pos >= image_height) {
             continue;
         }
 
@@ -233,17 +249,17 @@ void ObjectDetection::save_dencities_to_file(const std::vector<std::size_t>& den
     file.close();
 }
 
-CloudPtr ObjectDetection::filter_with_dencity_on_x_image(CloudPtr cloud, const Histogram& histogram,
-                                                         double resolution) {
-    const auto width = static_cast<std::size_t>(tunnel_width / resolution);
-    const auto height = static_cast<std::size_t>(tunnel_height / resolution);
+CloudPtr ObjectDetection::filter_with_dencity_on_x_image(CloudPtr cloud, const Histogram& histogram, double resolution,
+                                                         double width, double height) {
+    const auto image_width = static_cast<std::size_t>(width / resolution);
+    const auto image_height = static_cast<std::size_t>(height / resolution);
 
     auto low_density_cloud = CloudPtr(new Cloud);
     for (const auto& point : cloud->points) {
         const auto image_width_pos = static_cast<std::size_t>((tunnel_width / 2 + point.y) / resolution);
         const auto image_height_pos = static_cast<std::size_t>(point.z / resolution);
 
-        if (image_width_pos >= width or image_height_pos >= height) {
+        if (image_width_pos >= image_width or image_height_pos >= image_height) {
             continue;
         }
         if (histogram[image_height_pos][image_width_pos]) {
