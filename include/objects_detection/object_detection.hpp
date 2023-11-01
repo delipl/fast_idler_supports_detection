@@ -55,9 +55,10 @@ class ObjectDetection : public rclcpp::Node {
     double ground_resolution;
     std::size_t ground_histogram_min;
     std::size_t ground_histogram_max;
+    double ground_histogram_a;
 
     std::size_t max_detected_legs = 0;
-
+    std::size_t counter = 0;
     void create_rclcpp_instances();
     void lidar_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
@@ -66,7 +67,8 @@ class ObjectDetection : public rclcpp::Node {
     rclcpp::Publisher<rclcppCloud>::SharedPtr mid360_rotated_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr tunneled_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr outlier_removal_pub_;
-    rclcpp::Publisher<rclcppCloud>::SharedPtr without_ground_pub_;
+    rclcpp::Publisher<rclcppCloud>::SharedPtr forward_filtered;
+    rclcpp::Publisher<rclcppCloud>::SharedPtr ground_filtered;
     rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_conveyor_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr only_legs_pub_;
@@ -75,6 +77,7 @@ class ObjectDetection : public rclcpp::Node {
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr forward_density_histogram_pub_;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr forward_density_clustered_histogram_pub_;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr ground_density_histogram_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr ground_density_histogram_multiplied_pub_;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr ground_density_clustered_histogram_pub_;
 
     DownSampling down_sampler;
@@ -86,12 +89,15 @@ class ObjectDetection : public rclcpp::Node {
     CloudPtr remove_points_beyond_tunnel(CloudPtr cloud);
     CloudPtr filter_with_dencity_on_x_image(CloudPtr cloud, const Histogram &histogram, double resolution, double width,
                                             double height);
+    CloudPtr filter_with_dencity_on_z_image(CloudPtr cloud, const Histogram &histogram, double resolution, double width,
+                                            double length);
     Histogram create_histogram(CloudPtr cloud, double resolution,
                                                          double width, double height);
     Histogram remove_low_density_colums(const Histogram &histogram, std::size_t threshold);
     Histogram threshold_histogram(const Histogram &histogram, std::size_t min, std::size_t max);
+    Histogram multiply_histogram_by_exp(const Histogram &histogram, double a);
 
-    std::vector<std::size_t> count_densities(const Histogram &histogram);
+    void save_histogram_to_file(const Histogram &histogram, const std::string & file_name);
     sensor_msgs::msg::Image create_image_from_histogram(const Histogram &histogram);
 
     MarkersPtr make_markers_from_pointclouds(const CloudIPtrs &clustered_clouds);
