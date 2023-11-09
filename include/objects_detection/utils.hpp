@@ -9,6 +9,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <rclcpp/rclcpp.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include <vision_msgs/msg/bounding_box3_d_array.hpp>
 #include <vector>
 
 using Point = pcl::PointXYZ;
@@ -32,6 +33,7 @@ using rclcppCloudSharedPtr = rclcppCloud::SharedPtr;
 
 using Histogram = std::vector<std::vector<std::size_t>>;
 using MarkersPtr = std::shared_ptr<visualization_msgs::msg::MarkerArray>;
+using BoundingBoxArrayPtr = std::shared_ptr<vision_msgs::msg::BoundingBox3DArray>;
 
 
 CloudPtr convert_point_cloud2_to_cloud_ptr(rclcppCloudSharedPtr pc2);

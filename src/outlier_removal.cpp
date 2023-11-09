@@ -54,6 +54,7 @@ CloudPtr OutlierRemoval::radius_vertical_outlier(CloudPtr cloud, std::size_t k, 
     density_z_cloud->height = density_z_cloud->points.size();
     return density_z_cloud;
 }
+
 CloudPtr OutlierRemoval::radius_vertical_outlier(CloudPtr cloud) const{
     return radius_vertical_outlier(cloud, radius_vertical_outlier_neighbors_count, radius_vertical_outlier_radius,
                                    radius_vertical_outlier_diff);

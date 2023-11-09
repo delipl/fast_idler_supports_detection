@@ -83,7 +83,11 @@ void ObjectDetection::create_rclcpp_instances() {
     ground_filtered = create_publisher<sensor_msgs::msg::PointCloud2>("inz/ground_filtered", 10);
     clustered_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered", 10);
     clustered_conveyor_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered_conveyor", 10);
+    merged_density_clouds_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/merged_density_clouds_pub", 10);
+
     only_legs_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/only_legs", 10);
+    bounding_box_pub_ = create_publisher<vision_msgs::msg::BoundingBox3DArray>("inz/bounding_boxes", 10);
+
 
     forward_density_histogram_pub_ = create_publisher<sensor_msgs::msg::Image>("inz/forward_desity_histogram", 10);
     forward_density_clustered_histogram_pub_ =
@@ -92,7 +96,7 @@ void ObjectDetection::create_rclcpp_instances() {
     ground_density_histogram_pub_ = create_publisher<sensor_msgs::msg::Image>("inz/ground_desity_histogram", 10);
     ground_density_clustered_histogram_pub_ =
         create_publisher<sensor_msgs::msg::Image>("inz/ground_desity_clustered_histogram", 10);
-    ground_density_histogram_multiplied_pub_ = 
+    ground_density_histogram_multiplied_pub_ =
         create_publisher<sensor_msgs::msg::Image>("inz/ground_desity_multiplied_histogram", 10);
     markers_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>("marker_array", 10);
 
@@ -110,8 +114,11 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
         RCLCPP_WARN(get_logger(), "Empty pointcloud skipping...");
         return;
     }
+
     auto frame = msg->header.frame_id;
-    auto cloud{convert_point_cloud2_to_cloud_ptr(msg)};
+    auto cloud_raw{convert_point_cloud2_to_cloud_ptr(msg)};
+    auto cloud = remove_far_points_from_ros2bag_converter_bug(cloud_raw, 20.0);
+
     auto transformed_cloud = translate(rotate(cloud, roll, pitch, yaw), x, y, z);
 
     mid360_rotated_pub_->publish(convert_cloud_ptr_to_point_cloud2(transformed_cloud, frame, this));
@@ -122,10 +129,10 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     forward_density_histogram_pub_->publish(create_image_from_histogram(histogram));
 
     auto clustered_histogram = threshold_histogram(histogram, forward_histogram_min, forward_histogram_max);
-    auto removed_columns = remove_low_density_colums(clustered_histogram, forward_column_density_threshold);
+    auto removed_columns = remove_low_density_columns(clustered_histogram, forward_column_density_threshold);
     forward_density_clustered_histogram_pub_->publish(create_image_from_histogram(removed_columns));
 
-    auto low_density_cloud = filter_with_dencity_on_x_image(tunneled_cloud, removed_columns, forward_resolution,
+    auto low_density_cloud = filter_with_density_on_x_image(tunneled_cloud, removed_columns, forward_resolution,
                                                             tunnel_width, tunnel_height);
 
     forward_filtered->publish(convert_cloud_ptr_to_point_cloud2(low_density_cloud, frame, this));
@@ -133,18 +140,23 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     auto rotated_for_ground_histogram = rotate(tunneled_cloud, 0.0, -M_PI / 2.0, 0.0);
     auto ground_histogram =
         create_histogram(rotated_for_ground_histogram, ground_resolution, tunnel_width, tunnel_length);
-    // auto dencities = save_histogram_to_file(histogram);
+    // auto densities = save_histogram_to_file(histogram);
     ground_density_histogram_pub_->publish(create_image_from_histogram(ground_histogram));
     auto multiplied_ground_histogram = multiply_histogram_by_exp(ground_histogram, ground_histogram_a);
     ground_density_histogram_multiplied_pub_->publish(create_image_from_histogram(multiplied_ground_histogram));
 
-    auto clustered_ground_histogram = threshold_histogram(multiplied_ground_histogram, ground_histogram_min, ground_histogram_max);
+    auto clustered_ground_histogram =
+        threshold_histogram(multiplied_ground_histogram, ground_histogram_min, ground_histogram_max);
     ground_density_clustered_histogram_pub_->publish(create_image_from_histogram(clustered_ground_histogram));
-    auto high_density_top_cloud = filter_with_dencity_on_z_image(tunneled_cloud, clustered_ground_histogram, ground_resolution,
-                                                            tunnel_width, tunnel_length);
+    auto high_density_top_cloud = filter_with_density_on_z_image(tunneled_cloud, clustered_ground_histogram,
+                                                                 ground_resolution, tunnel_width, tunnel_length);
 
     ground_filtered->publish(convert_cloud_ptr_to_point_cloud2(high_density_top_cloud, frame, this));
 
+
+
+    auto merged_dencity_cloud{merge_clouds({low_density_cloud, high_density_top_cloud}, 0.0001)};
+    merged_density_clouds_pub_->publish(convert_cloud_ptr_to_point_cloud2(merged_dencity_cloud, frame, this));
 
     CloudIPtrs clustered_clouds = clusteler.euclidean(high_density_top_cloud);
     max_detected_legs = std::max(max_detected_legs, clustered_clouds.size());
@@ -156,8 +168,17 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     }
     clustered_conveyor_pub_->publish(convert_cloudi_ptr_to_point_cloud2(merged_clustered_cloud, frame, this));
 
+
+    
+
+
+
     auto markers = make_markers_from_pointclouds(clustered_clouds);
     markers_pub_->publish(*markers);
+
+    auto bouding_boxes_msg = make_bounding_boxes_from_pointclouds(clustered_clouds, frame);
+    bounding_box_pub_->publish(*bouding_boxes_msg);
+
     auto end = std::chrono::high_resolution_clock::now();
     auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
     RCLCPP_INFO_STREAM(get_logger(), "Callback Took: " << microseconds / 10e6 << "s");
@@ -227,8 +248,10 @@ sensor_msgs::msg::Image ObjectDetection::create_image_from_histogram(const Histo
     return image_msg;
 }
 
-void ObjectDetection::save_histogram_to_file(const Histogram& histogram, const std::string & file_name) {
-    std::ofstream file("/home/rabin/Documents/obsidian/inz/inżynierka/ws/to_histogram_pcds/dencities            /dencities_" + file_name + ".txt");
+void ObjectDetection::save_histogram_to_file(const Histogram& histogram, const std::string& file_name) {
+    std::ofstream file(
+        "/home/rabin/Documents/obsidian/inz/inżynierka/ws/to_histogram_pcds/densities            /densities_" +
+        file_name + ".txt");
     if (!file.is_open()) {
         std::cerr << "Error: Could not open the file." << std::endl;
         return;
@@ -241,20 +264,20 @@ void ObjectDetection::save_histogram_to_file(const Histogram& histogram, const s
     file.close();
 }
 
-void ObjectDetection::save_dencities_to_file(const std::vector<std::size_t>& dencities, const std::string& path) {
+void ObjectDetection::save_densities_to_file(const std::vector<std::size_t>& densities, const std::string& path) {
     std::ofstream file(path);
     if (!file.is_open()) {
         std::cerr << "Error: Could not open the file." << std::endl;
         return;
     }
 
-    for (const auto& d : dencities) {
+    for (const auto& d : densities) {
         file << d << "\n";
     }
     file.close();
 }
 
-CloudPtr ObjectDetection::filter_with_dencity_on_x_image(CloudPtr cloud, const Histogram& histogram, double resolution,
+CloudPtr ObjectDetection::filter_with_density_on_x_image(CloudPtr cloud, const Histogram& histogram, double resolution,
                                                          double width, double height) {
     const auto image_width = static_cast<std::size_t>(width / resolution);
     const auto image_height = static_cast<std::size_t>(height / resolution);
@@ -276,7 +299,7 @@ CloudPtr ObjectDetection::filter_with_dencity_on_x_image(CloudPtr cloud, const H
     return low_density_cloud;
 }
 
-CloudPtr ObjectDetection::filter_with_dencity_on_z_image(CloudPtr cloud, const Histogram& histogram, double resolution,
+CloudPtr ObjectDetection::filter_with_density_on_z_image(CloudPtr cloud, const Histogram& histogram, double resolution,
                                                          double width, double length) {
     const auto image_width = static_cast<std::size_t>(width / resolution);
     const auto image_height = static_cast<std::size_t>(length / resolution);
@@ -311,7 +334,7 @@ Histogram ObjectDetection::threshold_histogram(const Histogram& histogram, std::
     return clustered_histogram;
 }
 
-Histogram ObjectDetection::remove_low_density_colums(const Histogram& histogram, std::size_t threshold) {
+Histogram ObjectDetection::remove_low_density_columns(const Histogram& histogram, std::size_t threshold) {
     auto clustered_histogram(histogram);
 
     for (std::size_t i = 0; i < clustered_histogram[0].size(); ++i) {
@@ -374,12 +397,79 @@ MarkersPtr ObjectDetection::make_markers_from_pointclouds(const CloudIPtrs& clus
     return marker_array_msg;
 }
 
+CloudPtr ObjectDetection::merge_clouds(CloudPtrs clouds, double eps){
+    CloudPtr new_cloud(new Cloud);
+    for (const auto &cloud : clouds){
+        *new_cloud += *cloud;
+    }
+    for(std::size_t i = 0; i < new_cloud->size(); ++i ){
+        for(std::size_t j = 0; j < new_cloud->size(); ++j ){
+            if(i == j) continue;
+            const double distance = pcl::euclideanDistance(new_cloud->points[i], new_cloud->points[j]);
+            if(distance < eps){
+                new_cloud->points.erase(new_cloud->points.begin()+j);
+            }
+        }
+    }
+    new_cloud->height = new_cloud->points.size();
+    new_cloud->width = 1;
+    return new_cloud;
+}
+
+
+BoundingBoxArrayPtr ObjectDetection::make_bounding_boxes_from_pointclouds(const CloudIPtrs &clustered_clouds, const std::string &frame_name){
+    BoundingBoxArrayPtr bounding_boxes(new vision_msgs::msg::BoundingBox3DArray);
+    for (const auto& leg : clustered_clouds) {
+        vision_msgs::msg::BoundingBox3D bounding_box;
+        const float &max_value = std::numeric_limits<float>::max();
+        const float &min_value = -std::numeric_limits<float>::max();
+        Point max_coords{min_value, min_value, min_value};
+        Point min_coords{max_value, max_value, max_value};
+        for (const auto& point : leg->points) {
+            max_coords.x = std::max(point.x, max_coords.x);
+            max_coords.y = std::max(point.y, max_coords.y);
+            max_coords.z = std::max(point.z, max_coords.z);
+
+            min_coords.x = std::min(point.x, min_coords.x);
+            min_coords.y = std::min(point.y, min_coords.y);
+            min_coords.z = std::min(point.z, min_coords.z);
+        }
+
+        bounding_box.size.x = std::abs(max_coords.x - min_coords.x);
+        bounding_box.size.y = std::abs(max_coords.y - min_coords.y);
+        bounding_box.size.z = std::abs(max_coords.z - min_coords.z);
+
+        bounding_box.center.position.x =  min_coords.x + (max_coords.x - min_coords.x)/2;
+        bounding_box.center.position.y =  min_coords.y + (max_coords.y - min_coords.y)/2;
+        bounding_box.center.position.z =  min_coords.z + (max_coords.z - min_coords.z)/2;
+
+        bounding_boxes->boxes.push_back(bounding_box);
+    }
+    bounding_boxes->header.frame_id = frame_name;
+    bounding_boxes->header.stamp = get_clock()->now();
+    return bounding_boxes;
+}
+
+
 Histogram ObjectDetection::multiply_histogram_by_exp(const Histogram& histogram, double a) {
     Histogram multipied_histogram(histogram);
     for (auto i = 0u; i < multipied_histogram.size(); ++i) {
         for (auto j = 0u; j < multipied_histogram[i].size(); ++j) {
-            multipied_histogram[i][j] *= std::exp(a*i/multipied_histogram.size());
+            multipied_histogram[i][j] *= std::exp(a * i / multipied_histogram.size());
         }
     }
     return multipied_histogram;
+}
+
+CloudPtr ObjectDetection::remove_far_points_from_ros2bag_converter_bug(CloudPtr cloud, double max_distance){
+    auto new_cloud = CloudPtr(new Cloud);
+    for (const auto& point : cloud->points) {
+        const auto distance = pcl::euclideanDistance(point, Point{0, 0, 0});
+        if (distance < max_distance) {
+            new_cloud->points.push_back(point);
+        }
+    }
+    new_cloud->height = cloud->points.size();
+    new_cloud->width = 1;
+    return new_cloud;
 }

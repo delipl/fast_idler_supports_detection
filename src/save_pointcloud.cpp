@@ -19,15 +19,17 @@ class PointCloudListener : public rclcpp::Node {
     std::string topic_name_;
     std::string dest_file_name_;
     rclcpp::Subscription<rclcppCloud>::SharedPtr subscription_;
+    std::size_t count{0};
 
     void pointcloud_callback(const rclcppCloudSharedPtr msg) {
         // Konwersja PointCloud2 do chmury punktów PCL
         auto cloud{convert_point_cloud2_to_cloud_ptr(msg)};
         pcl::PCDWriter writer;
-        const auto dest_file_name_temp = dest_file_name_ + "_" + std::to_string(msg->header.stamp.nanosec) + ".pcd";
+        const auto dest_file_name_temp = dest_file_name_ + "_" + std::to_string(count) + ".pcd";
         writer.write<Point>(dest_file_name_temp, *cloud);
         RCLCPP_INFO(this->get_logger(), "PointCloud saved to %s", dest_file_name_temp.c_str());
         // rclcpp::shutdown();
+        ++count;
     }
 };
 

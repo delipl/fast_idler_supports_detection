@@ -11,6 +11,7 @@ find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(vision_msgs REQUIRED)
 
 set(CMAKE_BUILD_TYPE Release)
 include_directories(${PCL_INCLUDE_DIRS})
@@ -47,6 +48,7 @@ ament_target_dependencies(detection_library
   sensor_msgs
   pcl_conversions
   visualization_msgs
+  vision_msgs
 )
 
 install(TARGETS
@@ -71,6 +73,8 @@ ament_export_dependencies(
   rclcpp
   sensor_msgs
   pcl_conversions
+  visualization_msgs
+  vision_msgs
 )
 
 if(BUILD_TESTING)
@@ -108,6 +112,8 @@ ament_target_dependencies(object_detection
   rclcpp
   sensor_msgs
   pcl_conversions
+  visualization_msgs
+  vision_msgs
 )
 
 ament_target_dependencies(save_pointcloud
