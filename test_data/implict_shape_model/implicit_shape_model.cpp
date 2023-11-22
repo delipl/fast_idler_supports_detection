@@ -115,11 +115,12 @@ int main(int argc, char** argv) {
         // viewer.addCube(point.x - 0.02, point.x + 0.02, point.y - 0.5, point.y + 0.5, point.z - 0.10, point.z + 0.10,
         //                1.0, 1.0, 1.0, std::to_string(i_vote));
     }
-    std::cout << "Number of strongest points: " << i_vote << std::endl;
+    std::cout << "Number of strongest points: " << strongest_peaks.size() << std::endl;
     colored_cloud->points.push_back(point);
     colored_cloud->height += strongest_peaks.size();
 
     viewer.addPointCloud(colored_cloud);
+    
     while (!viewer.wasStopped()) {
         viewer.spin();
     }

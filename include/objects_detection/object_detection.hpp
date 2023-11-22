@@ -74,6 +74,7 @@ class ObjectDetection : public rclcpp::Node {
     rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_conveyor_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr only_legs_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr merged_density_clouds_pub_;
+    rclcpp::Publisher<rclcppCloud>::SharedPtr plane_filter_pub_;
 
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr markers_pub_;
     rclcpp::Publisher<vision_msgs::msg::BoundingBox3DArray>::SharedPtr bounding_box_pub_;
@@ -97,6 +98,10 @@ class ObjectDetection : public rclcpp::Node {
                                             double length);
     CloudPtr remove_far_points_from_ros2bag_converter_bug(CloudPtr cloud, double max_distance);
     CloudPtr merge_clouds(CloudPtrs clouds, double eps);
+
+    Point get_center_of_model(CloudIPtr cloud);
+    CloudPtr get_points_from_bounding_boxes(CloudPtr cloud, BoundingBoxArrayPtr boxes);
+    // CloudPtr plane_filter(CloudPtr cloud);
 
     Histogram create_histogram(CloudPtr cloud, double resolution,
                                                          double width, double height);

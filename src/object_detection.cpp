@@ -18,7 +18,7 @@ void ObjectDetection::declare_parameters() {
     declare_parameter("general.transform.z", "1.35");
 
     declare_parameter("general.tunnel.height", "1.5");
-    declare_parameter("general.tunnel.width", "3.00");
+    declare_parameter("general.tunnel.width", "4.00");
     declare_parameter("general.tunnel.length", "5.00");
 
     declare_parameter("general.forward.histogram.resolution", "0.1");
@@ -83,7 +83,8 @@ void ObjectDetection::create_rclcpp_instances() {
     ground_filtered = create_publisher<sensor_msgs::msg::PointCloud2>("inz/ground_filtered", 10);
     clustered_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered", 10);
     clustered_conveyor_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered_conveyor", 10);
-    merged_density_clouds_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/merged_density_clouds_pub", 10);
+    merged_density_clouds_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/merged_density_clouds", 10);
+    plane_filter_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/plane_filter", 10);
 
     only_legs_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/only_legs", 10);
     bounding_box_pub_ = create_publisher<vision_msgs::msg::BoundingBox3DArray>("inz/bounding_boxes", 10);
@@ -153,8 +154,6 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
 
     ground_filtered->publish(convert_cloud_ptr_to_point_cloud2(high_density_top_cloud, frame, this));
 
-
-
     auto merged_dencity_cloud{merge_clouds({low_density_cloud, high_density_top_cloud}, 0.0001)};
     merged_density_clouds_pub_->publish(convert_cloud_ptr_to_point_cloud2(merged_dencity_cloud, frame, this));
 
@@ -169,15 +168,23 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     clustered_conveyor_pub_->publish(convert_cloudi_ptr_to_point_cloud2(merged_clustered_cloud, frame, this));
 
 
-    
-
-
-
     auto markers = make_markers_from_pointclouds(clustered_clouds);
     markers_pub_->publish(*markers);
 
-    auto bouding_boxes_msg = make_bounding_boxes_from_pointclouds(clustered_clouds, frame);
-    bounding_box_pub_->publish(*bouding_boxes_msg);
+    auto bounding_boxes_msg = make_bounding_boxes_from_pointclouds(clustered_clouds, frame);
+    bounding_box_pub_->publish(*bounding_boxes_msg);
+
+    auto points_inside_boxes = get_points_from_bounding_boxes(tunneled_cloud, bounding_boxes_msg);
+
+
+    CloudIPtrs clustered_legs = clusteler.euclidean(points_inside_boxes);
+    CloudIPtr merged_clustered_legs(new CloudI);
+    for (auto& clustered_leg : clustered_legs) {
+        if (clustered_leg->size()) {
+            *merged_clustered_legs += *clustered_leg;
+        }
+    }
+    only_legs_pub_->publish(convert_cloudi_ptr_to_point_cloud2(merged_clustered_legs, frame, this));
 
     auto end = std::chrono::high_resolution_clock::now();
     auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
@@ -354,30 +361,28 @@ Histogram ObjectDetection::remove_low_density_columns(const Histogram& histogram
 
 MarkersPtr ObjectDetection::make_markers_from_pointclouds(const CloudIPtrs& clustered_clouds) {
     auto marker_array_msg = std::make_shared<visualization_msgs::msg::MarkerArray>();
+    const double &model_z_size = 0.3;
+    float max_z = -std::numeric_limits<float>::max();
     std::size_t count_ = 0;
     for (const auto& leg : clustered_clouds) {
-        Point mean{0.0, 0.0, 0.0};
-        for (const auto& point : leg->points) {
-            mean.x += point.x;
-            mean.y += point.y;
-            mean.z += point.z;
-        }
-        const auto& size = leg->points.size();
-        mean.x /= size;
-        mean.y /= size;
-        mean.z /= size;
         visualization_msgs::msg::Marker marker;
         marker.header.frame_id = "velodyne";
         marker.ns = "cylinders";
         marker.id = count_;
-        marker.type = visualization_msgs::msg::Marker::CYLINDER;
+        // marker.type = visualization_msgs::msg::Marker::CYLINDER;
+        marker.type = visualization_msgs::msg::Marker::MESH_RESOURCE;
         marker.action = visualization_msgs::msg::Marker::ADD;
-        marker.pose.position.x = mean.x;
-        marker.pose.position.y = mean.y;
-        marker.pose.position.z = mean.z;
-        marker.scale.x = 0.2;
-        marker.scale.y = 0.2;
-        marker.scale.z = 0.5;  // Height of the cylinder
+        marker.mesh_resource = "package://objects_detection/test_data/leg.dae";
+        const auto center = get_center_of_model(leg);
+        marker.pose.position.x = center.x;
+        marker.pose.position.y = center.y;
+        marker.pose.position.z = center.z;
+        // Zorientować w zależności po której stronie jest
+        marker.pose.orientation.w = center.y > 0? 1 : 0;
+        marker.pose.orientation.z = center.y > 0? 0 : 1;
+        marker.scale.x = 1.0;
+        marker.scale.y = 1.0;
+        marker.scale.z = 1.0;  // Height of the cylinder
         marker.color.a = 1.0;  // Alpha
         marker.color.r = 0.0;  // Red
         marker.color.g = 0.0;  // Green
@@ -386,7 +391,7 @@ MarkersPtr ObjectDetection::make_markers_from_pointclouds(const CloudIPtrs& clus
         count_++;
         marker_array_msg->markers.push_back(marker);
     }
-    for (std::size_t i = clustered_clouds.size() - 1; i < max_detected_legs; ++i) {
+    for (std::size_t i = clustered_clouds.size(); i < max_detected_legs; ++i) {
         visualization_msgs::msg::Marker marker;
         marker.header.frame_id = "velodyne";
         marker.ns = "cylinders";
@@ -419,6 +424,11 @@ CloudPtr ObjectDetection::merge_clouds(CloudPtrs clouds, double eps){
 
 BoundingBoxArrayPtr ObjectDetection::make_bounding_boxes_from_pointclouds(const CloudIPtrs &clustered_clouds, const std::string &frame_name){
     BoundingBoxArrayPtr bounding_boxes(new vision_msgs::msg::BoundingBox3DArray);
+    const double &model_x_size = 0.1; // z modelu
+    const double &model_y_size = 0.4;
+    const double &model_z_size = 0.3;
+    const double &ground_level = 0.0; // po znalezieniu ziemi;
+
     for (const auto& leg : clustered_clouds) {
         vision_msgs::msg::BoundingBox3D bounding_box;
         const float &max_value = std::numeric_limits<float>::max();
@@ -435,13 +445,15 @@ BoundingBoxArrayPtr ObjectDetection::make_bounding_boxes_from_pointclouds(const 
             min_coords.z = std::min(point.z, min_coords.z);
         }
 
-        bounding_box.size.x = std::abs(max_coords.x - min_coords.x);
-        bounding_box.size.y = std::abs(max_coords.y - min_coords.y);
-        bounding_box.size.z = std::abs(max_coords.z - min_coords.z);
+        const auto center = get_center_of_model(leg);
 
-        bounding_box.center.position.x =  min_coords.x + (max_coords.x - min_coords.x)/2;
-        bounding_box.center.position.y =  min_coords.y + (max_coords.y - min_coords.y)/2;
-        bounding_box.center.position.z =  min_coords.z + (max_coords.z - min_coords.z)/2;
+        bounding_box.size.x = model_x_size + 0.05; // get more points
+        bounding_box.size.y = model_y_size;
+        bounding_box.size.z = model_z_size + 0.05; //get higher poinst
+
+        bounding_box.center.position.x = center.x;
+        bounding_box.center.position.y = center.y;
+        bounding_box.center.position.z = center.z+ 0.05 ; //get higher poinst
 
         bounding_boxes->boxes.push_back(bounding_box);
     }
@@ -470,6 +482,46 @@ CloudPtr ObjectDetection::remove_far_points_from_ros2bag_converter_bug(CloudPtr 
         }
     }
     new_cloud->height = cloud->points.size();
+    new_cloud->width = 1;
+    return new_cloud;
+}
+
+Point ObjectDetection::get_center_of_model(CloudIPtr cloud){
+    Point center{0.0, 0.0, 0.0};
+    const double &model_height = 0.3;
+    const double &model_y_highest_point = 0.08; 
+    Point highest_point{0, 0, -std::numeric_limits<float>::max()};
+    for (const auto& point : cloud->points) {
+        center.x += point.x;
+        center.y += point.y;
+        if(highest_point.z < point.z){
+            highest_point.x = point.x;
+            highest_point.y = point.y;
+            highest_point.z = point.z;
+        }
+    }
+    const auto& size = cloud->points.size();
+    center.x /= size;
+    center.y = model_y_highest_point;
+    center.y *= highest_point.y > 0 ? 1 : -1;
+    center.y += highest_point.y;
+    center.z = highest_point.z - model_height/2;
+    return center;
+}
+
+
+
+CloudPtr ObjectDetection::get_points_from_bounding_boxes(CloudPtr cloud, BoundingBoxArrayPtr boxes){
+    CloudPtr new_cloud(new Cloud);
+    for(const auto &point : cloud->points){
+        for(const auto &box: boxes->boxes){
+            if(is_point_inside_box(point, box)){
+                new_cloud->points.push_back(point);
+            }
+        }
+    }
+
+    new_cloud->height = new_cloud->points.size();
     new_cloud->width = 1;
     return new_cloud;
 }

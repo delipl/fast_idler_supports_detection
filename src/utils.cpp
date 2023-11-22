@@ -70,3 +70,15 @@ CloudPtr remove_intensivity_from_cloud(CloudIPtr cloud){
     }
     return new_cloud;
 }
+
+
+bool is_point_inside_box(const Point& point, const BoundingBox &box) {
+    return (
+        point.x >= box.center.position.x - box.size.x/2 &&
+        point.x <= box.center.position.x + box.size.x/2 &&
+        point.y >= box.center.position.y - box.size.y/2 &&
+        point.y <= box.center.position.y + box.size.y/2 &&
+        point.z >= box.center.position.z - box.size.z/2 &&
+        point.z <= box.center.position.z + box.size.z/2
+    );
+}

@@ -33,6 +33,7 @@ using rclcppCloudSharedPtr = rclcppCloud::SharedPtr;
 
 using Histogram = std::vector<std::vector<std::size_t>>;
 using MarkersPtr = std::shared_ptr<visualization_msgs::msg::MarkerArray>;
+using BoundingBox = vision_msgs::msg::BoundingBox3D;
 using BoundingBoxArrayPtr = std::shared_ptr<vision_msgs::msg::BoundingBox3DArray>;
 
 
@@ -46,3 +47,6 @@ CloudPtr rotate(CloudPtr cloud, double roll, double pitch, double yaw);
 
 CloudPtr remove_intensivity_from_cloud(CloudIPtr cloud);
 CloudPtr translate(CloudPtr cloud, double x, double y, double z);
+
+
+bool is_point_inside_box(const Point& point, const BoundingBox &box);
