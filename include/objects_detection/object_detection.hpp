@@ -10,6 +10,9 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <pcl/sample_consensus/ransac.h>
+#include <pcl/sample_consensus/sac_model_plane.h>
+#include <pcl/sample_consensus/sac_model_line.h>
 
 #include <geometry_msgs/msg/pose.hpp>
 #include <rclcpp/duration.hpp>
@@ -98,6 +101,9 @@ class ObjectDetection : public rclcpp::Node {
                                             double length);
     CloudPtr remove_far_points_from_ros2bag_converter_bug(CloudPtr cloud, double max_distance);
     CloudPtr merge_clouds(CloudPtrs clouds, double eps);
+    CloudPtr run_ransac(CloudPtr cloud, int sac_model, int iterations, double radius, bool negative, double eps=0);
+    CloudPtr remove_right_points(CloudPtr cloud);
+
 
     Point get_center_of_model(CloudIPtr cloud);
     CloudPtr get_points_from_bounding_boxes(CloudPtr cloud, BoundingBoxArrayPtr boxes);

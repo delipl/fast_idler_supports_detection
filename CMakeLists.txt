@@ -110,10 +110,6 @@ add_executable(save_pointcloud
   src/save_pointcloud.cpp
 )
 
-add_executable(imu_time_fixer
-  src/imu_time_fixer.cpp
-)
-
 ament_target_dependencies(object_detection
   rclcpp
   sensor_msgs
@@ -128,11 +124,6 @@ ament_target_dependencies(save_pointcloud
   pcl_conversions
 )
 
-ament_target_dependencies(imu_time_fixer
-  rclcpp
-  sensor_msgs
-)
-
 target_include_directories(
   object_detection
   PUBLIC
@@ -141,24 +132,16 @@ target_include_directories(
 
 target_include_directories(
   save_pointcloud
-  PUBLIC
-  include
-)
-
-target_include_directories(
-  imu_time_fixer
   PUBLIC
   include
 )
 
 target_link_libraries(object_detection ${PCL_LIBRARIES} detection_library)
 target_link_libraries(save_pointcloud ${PCL_LIBRARIES} detection_library)
-target_link_libraries(imu_time_fixer ${PCL_LIBRARIES} detection_library)
 
 install(TARGETS
   object_detection
   save_pointcloud
-  imu_time_fixer
   DESTINATION lib/${PROJECT_NAME})
 
 ament_package()

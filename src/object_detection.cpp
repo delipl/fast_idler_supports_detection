@@ -118,7 +118,12 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
 
     auto frame = msg->header.frame_id;
     auto cloud_raw{convert_point_cloud2_to_cloud_ptr(msg)};
-    auto cloud = remove_far_points_from_ros2bag_converter_bug(cloud_raw, 20.0);
+    auto cloud = remove_far_points_from_ros2bag_converter_bug(cloud_raw, 5.0);
+    // auto without_right = remove_right_points(cloud);
+    // auto without_ground = run_ransac(without_right, pcl::SACMODEL_PLANE, 800, 0.05, true);
+    // tunneled_pub_->publish(convert_cloud_ptr_to_point_cloud2(without_ground, frame, this));
+    // auto line = run_ransac(without_ground, pcl::SACMODEL_PLANE, 800, 0.05, false);
+    // mid360_rotated_pub_->publish(convert_cloud_ptr_to_point_cloud2(line, frame, this));
 
     auto transformed_cloud = translate(rotate(cloud, roll, pitch, yaw), x, y, z);
 
@@ -486,6 +491,18 @@ CloudPtr ObjectDetection::remove_far_points_from_ros2bag_converter_bug(CloudPtr 
     return new_cloud;
 }
 
+CloudPtr ObjectDetection::remove_right_points(CloudPtr cloud){
+    auto new_cloud = CloudPtr(new Cloud);
+    for (const auto& point : cloud->points) {
+        if (point.y > 0.0) {
+            new_cloud->points.push_back(point);
+        }
+    }
+    new_cloud->height = cloud->points.size();
+    new_cloud->width = 1;
+    return new_cloud;
+}
+
 Point ObjectDetection::get_center_of_model(CloudIPtr cloud){
     Point center{0.0, 0.0, 0.0};
     const double &model_height = 0.3;
@@ -523,5 +540,32 @@ CloudPtr ObjectDetection::get_points_from_bounding_boxes(CloudPtr cloud, Boundin
 
     new_cloud->height = new_cloud->points.size();
     new_cloud->width = 1;
+    return new_cloud;
+}
+
+CloudPtr ObjectDetection::run_ransac(CloudPtr cloud, int sac_model, int iterations, double radius, bool negative, double eps){
+    // Segment ground
+    pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
+    pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+    CloudPtr new_cloud(new Cloud);
+    pcl::SACSegmentation<Point> seg;
+    seg.setOptimizeCoefficients (true);
+    seg.setModelType (sac_model);
+    seg.setMethodType (pcl::SAC_RANSAC);
+    seg.setDistanceThreshold (radius);
+    seg.setMaxIterations(iterations);
+    seg.setEpsAngle(eps);
+    pcl::ExtractIndices<pcl::PointXYZ> extract;
+    seg.setInputCloud (cloud);
+    seg.segment (*inliers, *coefficients);
+    if (inliers->indices.size () == 0)
+    {
+        std::cerr << "Could not estimate a planar model for the given dataset." << std::endl;
+        // break;
+    }
+    extract.setNegative (negative);
+    extract.setInputCloud (cloud);
+    extract.setIndices (inliers);
+    extract.filter(*new_cloud);
     return new_cloud;
 }
