@@ -124,12 +124,13 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
 
     // Ground Filtering
     Eigen::Vector3d normal;
-    auto filtered_ground_clouds = run_ransac(without_right, pcl::SACMODEL_PLANE, 800, 0.05, std::ref(normal));
+    double ground_height;
+    auto filtered_ground_clouds = filter_ground_and_get_normal_and_height(without_right, pcl::SACMODEL_PLANE, 800, 0.05, std::ref(normal), std::ref(ground_height));
     auto ground = filtered_ground_clouds.first;
     auto without_ground = filtered_ground_clouds.second;
     ground_pub_->publish(convert_cloud_ptr_to_point_cloud2(ground, frame, this));
     without_ground_pub_->publish(convert_cloud_ptr_to_point_cloud2(without_ground, frame, this));
-    auto aligned_cloud = align_to_normal(without_ground, normal);
+    auto aligned_cloud = align_to_normal(without_ground, normal, ground_height);
     transformed_pub_->publish(convert_cloud_ptr_to_point_cloud2(aligned_cloud, frame, this));
 
 
@@ -545,7 +546,7 @@ CloudPtr ObjectDetection::get_points_from_bounding_boxes(CloudPtr cloud, Boundin
     return new_cloud;
 }
 
-std::pair<CloudPtr, CloudPtr> ObjectDetection::run_ransac(CloudPtr cloud, int sac_model, int iterations, double radius, Eigen::Vector3d &normal, double eps){
+std::pair<CloudPtr, CloudPtr> ObjectDetection::filter_ground_and_get_normal_and_height(CloudPtr cloud, int sac_model, int iterations, double radius, Eigen::Vector3d &normal, double &ground_height, double eps){
     // Segment ground
     pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
@@ -576,10 +577,11 @@ std::pair<CloudPtr, CloudPtr> ObjectDetection::run_ransac(CloudPtr cloud, int sa
     extract.filter(*ground);
 
     normal << coefficients->values[0], coefficients->values[1], coefficients->values[2];
+    ground_height = coefficients->values[3];
     return {ground, without_ground};
 }
 
-CloudPtr ObjectDetection::align_to_normal(CloudPtr cloud, const Eigen::Vector3d& normal){
+CloudPtr ObjectDetection::align_to_normal(CloudPtr cloud, const Eigen::Vector3d& normal, double ground_height){
     const auto &up_vector = Eigen::Vector3d::UnitZ();
     Eigen::Vector3d axis = normal.cross(up_vector).normalized();
     float angle = acos(normal.dot(up_vector) / (normal.norm() * up_vector.norm()));
@@ -588,7 +590,7 @@ CloudPtr ObjectDetection::align_to_normal(CloudPtr cloud, const Eigen::Vector3d&
     rotation_matrix = Eigen::AngleAxisd(angle, axis);
     RCLCPP_DEBUG_STREAM(get_logger(), "Rotation matrix: \n" << rotation_matrix);
     Eigen::Vector3d rpy = rotation_matrix.normalized().eulerAngles(2, 1, 0);
-    auto transformed_cloud = translate(rotate(cloud, rpy[0], rpy[1], rpy[2]), 0, 0, 0);
+    auto transformed_cloud = translate(rotate(cloud, rpy[0], rpy[1], rpy[2]), 0, 0, ground_height);
     return transformed_cloud;
 }
 

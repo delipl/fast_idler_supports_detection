@@ -102,9 +102,9 @@ class ObjectDetection : public rclcpp::Node {
                                             double length);
     CloudPtr remove_far_points_from_ros2bag_converter_bug(CloudPtr cloud, double max_distance);
     CloudPtr merge_clouds(CloudPtrs clouds, double eps);
-    std::pair<CloudPtr, CloudPtr> run_ransac(CloudPtr cloud, int sac_model, int iterations, double radius, Eigen::Vector3d &normal, double eps=0);
+    std::pair<CloudPtr, CloudPtr> filter_ground_and_get_normal_and_height(CloudPtr cloud, int sac_model, int iterations, double radius, Eigen::Vector3d &normal, double &ground_height, double eps=0);
     CloudPtr remove_right_points(CloudPtr cloud);
-    CloudPtr align_to_normal(CloudPtr cloud, const Eigen::Vector3d& normal);
+    CloudPtr align_to_normal(CloudPtr cloud, const Eigen::Vector3d& normal, double ground_height);
 
     Point get_center_of_model(CloudIPtr cloud);
     CloudPtr get_points_from_bounding_boxes(CloudPtr cloud, BoundingBoxArrayPtr boxes);
