@@ -66,13 +66,14 @@ class ObjectDetection : public rclcpp::Node {
     void create_rclcpp_instances();
     void lidar_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
-    rclcpp::Subscription<rclcppCloud>::SharedPtr lidar_pc2_sub_;
-    rclcpp::Publisher<rclcppCloud>::SharedPtr test_pc2_pub_;
-    rclcpp::Publisher<rclcppCloud>::SharedPtr mid360_rotated_pub_;
+    rclcpp::Subscription<rclcppCloud>::SharedPtr pointcloud_sub_;
+    rclcpp::Publisher<rclcppCloud>::SharedPtr ground_pub_;
+    rclcpp::Publisher<rclcppCloud>::SharedPtr without_ground_pub_;
+    rclcpp::Publisher<rclcppCloud>::SharedPtr transformed_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr tunneled_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr outlier_removal_pub_;
-    rclcpp::Publisher<rclcppCloud>::SharedPtr forward_filtered;
-    rclcpp::Publisher<rclcppCloud>::SharedPtr ground_filtered;
+    rclcpp::Publisher<rclcppCloud>::SharedPtr forward_hist_filtered_pub_;
+    rclcpp::Publisher<rclcppCloud>::SharedPtr top_hist_filtered_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_conveyor_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr only_legs_pub_;
@@ -101,9 +102,9 @@ class ObjectDetection : public rclcpp::Node {
                                             double length);
     CloudPtr remove_far_points_from_ros2bag_converter_bug(CloudPtr cloud, double max_distance);
     CloudPtr merge_clouds(CloudPtrs clouds, double eps);
-    CloudPtr run_ransac(CloudPtr cloud, int sac_model, int iterations, double radius, bool negative, double eps=0);
+    std::pair<CloudPtr, CloudPtr> run_ransac(CloudPtr cloud, int sac_model, int iterations, double radius, Eigen::Vector3d &normal, double eps=0);
     CloudPtr remove_right_points(CloudPtr cloud);
-
+    CloudPtr align_to_normal(CloudPtr cloud, const Eigen::Vector3d& normal);
 
     Point get_center_of_model(CloudIPtr cloud);
     CloudPtr get_points_from_bounding_boxes(CloudPtr cloud, BoundingBoxArrayPtr boxes);

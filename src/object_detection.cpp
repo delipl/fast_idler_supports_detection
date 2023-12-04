@@ -75,12 +75,13 @@ void ObjectDetection::get_parameters() {
 }
 
 void ObjectDetection::create_rclcpp_instances() {
-    test_pc2_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/test", 10);
-    mid360_rotated_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/rotated", 10);
+    transformed_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/rotated", 10);
     tunneled_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/tunneled", 10);
+    ground_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/ground_pub_", 10);
+    without_ground_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/without_ground_pub_", 10);
     outlier_removal_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/outlier_removal", 10);
-    forward_filtered = create_publisher<sensor_msgs::msg::PointCloud2>("inz/forward_filtered", 10);
-    ground_filtered = create_publisher<sensor_msgs::msg::PointCloud2>("inz/ground_filtered", 10);
+    forward_hist_filtered_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/forward_hist_filtered_pub_", 10);
+    top_hist_filtered_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/top_hist_filtered_pub_", 10);
     clustered_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered", 10);
     clustered_conveyor_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered_conveyor", 10);
     merged_density_clouds_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/merged_density_clouds", 10);
@@ -103,7 +104,7 @@ void ObjectDetection::create_rclcpp_instances() {
 
     using std::placeholders::_1;
     const std::string& topic_name = pointcloud_topic_name;
-    lidar_pc2_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
+    pointcloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
         topic_name, 10, std::bind(&ObjectDetection::lidar_callback, this, _1));
 }
 
@@ -119,17 +120,22 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     auto frame = msg->header.frame_id;
     auto cloud_raw{convert_point_cloud2_to_cloud_ptr(msg)};
     auto cloud = remove_far_points_from_ros2bag_converter_bug(cloud_raw, 5.0);
-    // auto without_right = remove_right_points(cloud);
-    // auto without_ground = run_ransac(without_right, pcl::SACMODEL_PLANE, 800, 0.05, true);
-    // tunneled_pub_->publish(convert_cloud_ptr_to_point_cloud2(without_ground, frame, this));
-    // auto line = run_ransac(without_ground, pcl::SACMODEL_PLANE, 800, 0.05, false);
-    // mid360_rotated_pub_->publish(convert_cloud_ptr_to_point_cloud2(line, frame, this));
+    auto without_right = remove_right_points(cloud);
 
-    auto transformed_cloud = translate(rotate(cloud, roll, pitch, yaw), x, y, z);
+    // Ground Filtering
+    Eigen::Vector3d normal;
+    auto filtered_ground_clouds = run_ransac(without_right, pcl::SACMODEL_PLANE, 800, 0.05, std::ref(normal));
+    auto ground = filtered_ground_clouds.first;
+    auto without_ground = filtered_ground_clouds.second;
+    ground_pub_->publish(convert_cloud_ptr_to_point_cloud2(ground, frame, this));
+    without_ground_pub_->publish(convert_cloud_ptr_to_point_cloud2(without_ground, frame, this));
+    auto aligned_cloud = align_to_normal(without_ground, normal);
+    transformed_pub_->publish(convert_cloud_ptr_to_point_cloud2(aligned_cloud, frame, this));
 
-    mid360_rotated_pub_->publish(convert_cloud_ptr_to_point_cloud2(transformed_cloud, frame, this));
-    auto tunneled_cloud = remove_points_beyond_tunnel(transformed_cloud);
-    tunneled_pub_->publish(convert_cloud_ptr_to_point_cloud2(tunneled_cloud, frame, this));
+
+
+    auto tunneled_cloud = remove_points_beyond_tunnel(aligned_cloud);
+    // tunneled_pub_->publish(convert_cloud_ptr_to_point_cloud2(tunneled_cloud, frame, this));
 
     auto histogram = create_histogram(tunneled_cloud, forward_resolution, tunnel_width, tunnel_height);
     forward_density_histogram_pub_->publish(create_image_from_histogram(histogram));
@@ -141,7 +147,7 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     auto low_density_cloud = filter_with_density_on_x_image(tunneled_cloud, removed_columns, forward_resolution,
                                                             tunnel_width, tunnel_height);
 
-    forward_filtered->publish(convert_cloud_ptr_to_point_cloud2(low_density_cloud, frame, this));
+    forward_hist_filtered_pub_->publish(convert_cloud_ptr_to_point_cloud2(low_density_cloud, frame, this));
 
     auto rotated_for_ground_histogram = rotate(tunneled_cloud, 0.0, -M_PI / 2.0, 0.0);
     auto ground_histogram =
@@ -157,7 +163,7 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     auto high_density_top_cloud = filter_with_density_on_z_image(tunneled_cloud, clustered_ground_histogram,
                                                                  ground_resolution, tunnel_width, tunnel_length);
 
-    ground_filtered->publish(convert_cloud_ptr_to_point_cloud2(high_density_top_cloud, frame, this));
+    top_hist_filtered_pub_->publish(convert_cloud_ptr_to_point_cloud2(high_density_top_cloud, frame, this));
 
     auto merged_dencity_cloud{merge_clouds({low_density_cloud, high_density_top_cloud}, 0.0001)};
     merged_density_clouds_pub_->publish(convert_cloud_ptr_to_point_cloud2(merged_dencity_cloud, frame, this));
@@ -426,7 +432,6 @@ CloudPtr ObjectDetection::merge_clouds(CloudPtrs clouds, double eps){
     return new_cloud;
 }
 
-
 BoundingBoxArrayPtr ObjectDetection::make_bounding_boxes_from_pointclouds(const CloudIPtrs &clustered_clouds, const std::string &frame_name){
     BoundingBoxArrayPtr bounding_boxes(new vision_msgs::msg::BoundingBox3DArray);
     const double &model_x_size = 0.1; // z modelu
@@ -466,7 +471,6 @@ BoundingBoxArrayPtr ObjectDetection::make_bounding_boxes_from_pointclouds(const 
     bounding_boxes->header.stamp = get_clock()->now();
     return bounding_boxes;
 }
-
 
 Histogram ObjectDetection::multiply_histogram_by_exp(const Histogram& histogram, double a) {
     Histogram multipied_histogram(histogram);
@@ -526,8 +530,6 @@ Point ObjectDetection::get_center_of_model(CloudIPtr cloud){
     return center;
 }
 
-
-
 CloudPtr ObjectDetection::get_points_from_bounding_boxes(CloudPtr cloud, BoundingBoxArrayPtr boxes){
     CloudPtr new_cloud(new Cloud);
     for(const auto &point : cloud->points){
@@ -543,11 +545,13 @@ CloudPtr ObjectDetection::get_points_from_bounding_boxes(CloudPtr cloud, Boundin
     return new_cloud;
 }
 
-CloudPtr ObjectDetection::run_ransac(CloudPtr cloud, int sac_model, int iterations, double radius, bool negative, double eps){
+std::pair<CloudPtr, CloudPtr> ObjectDetection::run_ransac(CloudPtr cloud, int sac_model, int iterations, double radius, Eigen::Vector3d &normal, double eps){
     // Segment ground
     pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
-    CloudPtr new_cloud(new Cloud);
+    CloudPtr ground(new Cloud);
+    CloudPtr without_ground(new Cloud);
+
     pcl::SACSegmentation<Point> seg;
     seg.setOptimizeCoefficients (true);
     seg.setModelType (sac_model);
@@ -561,11 +565,30 @@ CloudPtr ObjectDetection::run_ransac(CloudPtr cloud, int sac_model, int iteratio
     if (inliers->indices.size () == 0)
     {
         std::cerr << "Could not estimate a planar model for the given dataset." << std::endl;
-        // break;
+        // TODO: check it above
+        return {nullptr, nullptr};
     }
-    extract.setNegative (negative);
+    extract.setNegative (true);
     extract.setInputCloud (cloud);
     extract.setIndices (inliers);
-    extract.filter(*new_cloud);
-    return new_cloud;
+    extract.filter(*without_ground);
+    extract.setNegative (false);
+    extract.filter(*ground);
+
+    normal << coefficients->values[0], coefficients->values[1], coefficients->values[2];
+    return {ground, without_ground};
 }
+
+CloudPtr ObjectDetection::align_to_normal(CloudPtr cloud, const Eigen::Vector3d& normal){
+    const auto &up_vector = Eigen::Vector3d::UnitZ();
+    Eigen::Vector3d axis = normal.cross(up_vector).normalized();
+    float angle = acos(normal.dot(up_vector) / (normal.norm() * up_vector.norm()));
+
+    Eigen::Matrix3d rotation_matrix;
+    rotation_matrix = Eigen::AngleAxisd(angle, axis);
+    RCLCPP_DEBUG_STREAM(get_logger(), "Rotation matrix: \n" << rotation_matrix);
+    Eigen::Vector3d rpy = rotation_matrix.normalized().eulerAngles(2, 1, 0);
+    auto transformed_cloud = translate(rotate(cloud, rpy[0], rpy[1], rpy[2]), 0, 0, 0);
+    return transformed_cloud;
+}
+
