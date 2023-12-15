@@ -1,3 +1,4 @@
+#include <fstream>
 #include <objects_detection/object_detection.hpp>
 
 ObjectDetection::ObjectDetection() : Node("object_detection") {
@@ -90,7 +91,6 @@ void ObjectDetection::create_rclcpp_instances() {
     only_legs_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/only_legs", 10);
     bounding_box_pub_ = create_publisher<vision_msgs::msg::BoundingBox3DArray>("inz/bounding_boxes", 10);
 
-
     forward_density_histogram_pub_ = create_publisher<sensor_msgs::msg::Image>("inz/forward_desity_histogram", 10);
     forward_density_clustered_histogram_pub_ =
         create_publisher<sensor_msgs::msg::Image>("inz/forward_desity_clustered_histogram", 10);
@@ -123,20 +123,20 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     auto without_right = remove_right_points(cloud);
 
     // Ground Filtering
-    Eigen::Vector3d normal;
+    Eigen::Vector3d normal_vec;
     double ground_height;
-    auto filtered_ground_clouds = filter_ground_and_get_normal_and_height(without_right, pcl::SACMODEL_PLANE, 800, 0.05, std::ref(normal), std::ref(ground_height));
+    auto filtered_ground_clouds = filter_ground_and_get_normal_and_height(
+        cloud, pcl::SACMODEL_PLANE, 800, 0.05, std::ref(normal_vec), std::ref(ground_height));
     auto ground = filtered_ground_clouds.first;
     auto without_ground = filtered_ground_clouds.second;
+
     ground_pub_->publish(convert_cloud_ptr_to_point_cloud2(ground, frame, this));
     without_ground_pub_->publish(convert_cloud_ptr_to_point_cloud2(without_ground, frame, this));
-    auto aligned_cloud = align_to_normal(without_ground, normal, ground_height);
+    auto aligned_cloud = align_to_normal(without_ground, normal_vec, ground_height);
     transformed_pub_->publish(convert_cloud_ptr_to_point_cloud2(aligned_cloud, frame, this));
 
-
-
     auto tunneled_cloud = remove_points_beyond_tunnel(aligned_cloud);
-    // tunneled_pub_->publish(convert_cloud_ptr_to_point_cloud2(tunneled_cloud, frame, this));
+    tunneled_pub_->publish(convert_cloud_ptr_to_point_cloud2(cloud, frame, this));
 
     auto histogram = create_histogram(tunneled_cloud, forward_resolution, tunnel_width, tunnel_height);
     forward_density_histogram_pub_->publish(create_image_from_histogram(histogram));
@@ -155,11 +155,12 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
         create_histogram(rotated_for_ground_histogram, ground_resolution, tunnel_width, tunnel_length);
     // auto densities = save_histogram_to_file(histogram);
     ground_density_histogram_pub_->publish(create_image_from_histogram(ground_histogram));
-    auto multiplied_ground_histogram = multiply_histogram_by_exp(ground_histogram, ground_histogram_a);
-    ground_density_histogram_multiplied_pub_->publish(create_image_from_histogram(multiplied_ground_histogram));
+    // auto multiplied_ground_histogram = multiply_histogram_by_exp(ground_histogram, ground_histogram_a);
+    // ground_density_histogram_multiplied_pub_->publish(create_image_from_histogram(multiplied_ground_histogram));
 
-    auto clustered_ground_histogram =
-        threshold_histogram(multiplied_ground_histogram, ground_histogram_min, ground_histogram_max);
+    // auto clustered_ground_histogram =
+    //     threshold_histogram(multiplied_ground_histogram, ground_histogram_min, ground_histogram_max);
+    auto clustered_ground_histogram = segment_local_peeks(ground_histogram, 10, 3);
     ground_density_clustered_histogram_pub_->publish(create_image_from_histogram(clustered_ground_histogram));
     auto high_density_top_cloud = filter_with_density_on_z_image(tunneled_cloud, clustered_ground_histogram,
                                                                  ground_resolution, tunnel_width, tunnel_length);
@@ -172,31 +173,38 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     CloudIPtrs clustered_clouds = clusteler.euclidean(high_density_top_cloud);
     max_detected_legs = std::max(max_detected_legs, clustered_clouds.size());
     CloudIPtr merged_clustered_cloud(new CloudI);
+
+    std::list<std::pair<Ellipsoid, Point>> ellipsoids_infos;
     for (auto& clustered_cloud : clustered_clouds) {
         if (clustered_cloud->size()) {
+            auto ellipsoide_info = get_ellipsoid_and_center(clustered_cloud);
+            ellipsoids_infos.push_back(ellipsoide_info);
             *merged_clustered_cloud += *clustered_cloud;
         }
     }
     clustered_conveyor_pub_->publish(convert_cloudi_ptr_to_point_cloud2(merged_clustered_cloud, frame, this));
 
+    // auto markers = make_markers_from_pointclouds(clustered_clouds);
 
-    auto markers = make_markers_from_pointclouds(clustered_clouds);
-    markers_pub_->publish(*markers);
+    // auto bounding_boxes_msg = make_bounding_boxes_from_pointclouds(clustered_clouds, frame);
+    // bounding_box_pub_->publish(*bounding_boxes_msg);
 
-    auto bounding_boxes_msg = make_bounding_boxes_from_pointclouds(clustered_clouds, frame);
-    bounding_box_pub_->publish(*bounding_boxes_msg);
+    // auto points_inside_boxes = get_points_from_bounding_boxes(tunneled_cloud, bounding_boxes_msg);
 
-    auto points_inside_boxes = get_points_from_bounding_boxes(tunneled_cloud, bounding_boxes_msg);
+    // CloudIPtrs clustered_legs = clusteler.euclidean(points_inside_boxes);
+    // CloudIPtr merged_clustered_legs(new CloudI);
 
-
-    CloudIPtrs clustered_legs = clusteler.euclidean(points_inside_boxes);
-    CloudIPtr merged_clustered_legs(new CloudI);
-    for (auto& clustered_leg : clustered_legs) {
-        if (clustered_leg->size()) {
-            *merged_clustered_legs += *clustered_leg;
-        }
-    }
-    only_legs_pub_->publish(convert_cloudi_ptr_to_point_cloud2(merged_clustered_legs, frame, this));
+    // std::list<std::pair<Ellipsoid, Point>> ellipsoids_infos;
+    // for (auto& clustered_leg : clustered_legs) {
+    //     if (clustered_leg->size()) {
+    //         auto ellipsoide_info = get_ellipsoid_and_center(clustered_leg);
+    //         ellipsoids_infos.push_back(ellipsoide_info);
+    //         *merged_clustered_legs += *clustered_leg;
+    //     }
+    // }
+    auto spheres = make_markers_from_ellipsoids_infos(ellipsoids_infos);
+    markers_pub_->publish(*spheres);
+    only_legs_pub_->publish(convert_cloudi_ptr_to_point_cloud2(merged_clustered_cloud, frame, this));
 
     auto end = std::chrono::high_resolution_clock::now();
     auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
@@ -373,7 +381,7 @@ Histogram ObjectDetection::remove_low_density_columns(const Histogram& histogram
 
 MarkersPtr ObjectDetection::make_markers_from_pointclouds(const CloudIPtrs& clustered_clouds) {
     auto marker_array_msg = std::make_shared<visualization_msgs::msg::MarkerArray>();
-    const double &model_z_size = 0.3;
+    const double& model_z_size = 0.3;
     float max_z = -std::numeric_limits<float>::max();
     std::size_t count_ = 0;
     for (const auto& leg : clustered_clouds) {
@@ -390,8 +398,8 @@ MarkersPtr ObjectDetection::make_markers_from_pointclouds(const CloudIPtrs& clus
         marker.pose.position.y = center.y;
         marker.pose.position.z = center.z;
         // Zorientować w zależności po której stronie jest
-        marker.pose.orientation.w = center.y > 0? 1 : 0;
-        marker.pose.orientation.z = center.y > 0? 0 : 1;
+        marker.pose.orientation.w = center.y > 0 ? 1 : 0;
+        marker.pose.orientation.z = center.y > 0 ? 0 : 1;
         marker.scale.x = 1.0;
         marker.scale.y = 1.0;
         marker.scale.z = 1.0;  // Height of the cylinder
@@ -414,17 +422,17 @@ MarkersPtr ObjectDetection::make_markers_from_pointclouds(const CloudIPtrs& clus
     return marker_array_msg;
 }
 
-CloudPtr ObjectDetection::merge_clouds(CloudPtrs clouds, double eps){
+CloudPtr ObjectDetection::merge_clouds(CloudPtrs clouds, double eps) {
     CloudPtr new_cloud(new Cloud);
-    for (const auto &cloud : clouds){
+    for (const auto& cloud : clouds) {
         *new_cloud += *cloud;
     }
-    for(std::size_t i = 0; i < new_cloud->size(); ++i ){
-        for(std::size_t j = 0; j < new_cloud->size(); ++j ){
-            if(i == j) continue;
+    for (std::size_t i = 0; i < new_cloud->size(); ++i) {
+        for (std::size_t j = 0; j < new_cloud->size(); ++j) {
+            if (i == j) continue;
             const double distance = pcl::euclideanDistance(new_cloud->points[i], new_cloud->points[j]);
-            if(distance < eps){
-                new_cloud->points.erase(new_cloud->points.begin()+j);
+            if (distance < eps) {
+                new_cloud->points.erase(new_cloud->points.begin() + j);
             }
         }
     }
@@ -433,17 +441,18 @@ CloudPtr ObjectDetection::merge_clouds(CloudPtrs clouds, double eps){
     return new_cloud;
 }
 
-BoundingBoxArrayPtr ObjectDetection::make_bounding_boxes_from_pointclouds(const CloudIPtrs &clustered_clouds, const std::string &frame_name){
+BoundingBoxArrayPtr ObjectDetection::make_bounding_boxes_from_pointclouds(const CloudIPtrs& clustered_clouds,
+                                                                          const std::string& frame_name) {
     BoundingBoxArrayPtr bounding_boxes(new vision_msgs::msg::BoundingBox3DArray);
-    const double &model_x_size = 0.1; // z modelu
-    const double &model_y_size = 0.4;
-    const double &model_z_size = 0.3;
-    const double &ground_level = 0.0; // po znalezieniu ziemi;
+    const double& model_x_size = 0.1;  // z modelu
+    const double& model_y_size = 0.4;
+    const double& model_z_size = 1.5;
+    const double& ground_level = 0.0;  // po znalezieniu ziemi;
 
     for (const auto& leg : clustered_clouds) {
         vision_msgs::msg::BoundingBox3D bounding_box;
-        const float &max_value = std::numeric_limits<float>::max();
-        const float &min_value = -std::numeric_limits<float>::max();
+        const float& max_value = std::numeric_limits<float>::max();
+        const float& min_value = -std::numeric_limits<float>::max();
         Point max_coords{min_value, min_value, min_value};
         Point min_coords{max_value, max_value, max_value};
         for (const auto& point : leg->points) {
@@ -458,13 +467,13 @@ BoundingBoxArrayPtr ObjectDetection::make_bounding_boxes_from_pointclouds(const 
 
         const auto center = get_center_of_model(leg);
 
-        bounding_box.size.x = model_x_size + 0.05; // get more points
+        bounding_box.size.x = model_x_size + 0.05;  // get more points
         bounding_box.size.y = model_y_size;
-        bounding_box.size.z = model_z_size + 0.05; //get higher poinst
+        bounding_box.size.z = model_z_size + 0.05;  // get higher poinst
 
         bounding_box.center.position.x = center.x;
         bounding_box.center.position.y = center.y;
-        bounding_box.center.position.z = center.z+ 0.05 ; //get higher poinst
+        bounding_box.center.position.z = center.z + 0.05;  // get higher poinst
 
         bounding_boxes->boxes.push_back(bounding_box);
     }
@@ -483,7 +492,7 @@ Histogram ObjectDetection::multiply_histogram_by_exp(const Histogram& histogram,
     return multipied_histogram;
 }
 
-CloudPtr ObjectDetection::remove_far_points_from_ros2bag_converter_bug(CloudPtr cloud, double max_distance){
+CloudPtr ObjectDetection::remove_far_points_from_ros2bag_converter_bug(CloudPtr cloud, double max_distance) {
     auto new_cloud = CloudPtr(new Cloud);
     for (const auto& point : cloud->points) {
         const auto distance = pcl::euclideanDistance(point, Point{0, 0, 0});
@@ -491,12 +500,12 @@ CloudPtr ObjectDetection::remove_far_points_from_ros2bag_converter_bug(CloudPtr 
             new_cloud->points.push_back(point);
         }
     }
-    new_cloud->height = cloud->points.size();
+    new_cloud->height = new_cloud->points.size();
     new_cloud->width = 1;
     return new_cloud;
 }
 
-CloudPtr ObjectDetection::remove_right_points(CloudPtr cloud){
+CloudPtr ObjectDetection::remove_right_points(CloudPtr cloud) {
     auto new_cloud = CloudPtr(new Cloud);
     for (const auto& point : cloud->points) {
         if (point.y > 0.0) {
@@ -508,15 +517,15 @@ CloudPtr ObjectDetection::remove_right_points(CloudPtr cloud){
     return new_cloud;
 }
 
-Point ObjectDetection::get_center_of_model(CloudIPtr cloud){
+Point ObjectDetection::get_center_of_model(CloudIPtr cloud) {
     Point center{0.0, 0.0, 0.0};
-    const double &model_height = 0.3;
-    const double &model_y_highest_point = 0.08; 
+    const double& model_height = 0.3;
+    const double& model_y_highest_point = 0.08;
     Point highest_point{0, 0, -std::numeric_limits<float>::max()};
     for (const auto& point : cloud->points) {
         center.x += point.x;
         center.y += point.y;
-        if(highest_point.z < point.z){
+        if (highest_point.z < point.z) {
             highest_point.x = point.x;
             highest_point.y = point.y;
             highest_point.z = point.z;
@@ -527,15 +536,15 @@ Point ObjectDetection::get_center_of_model(CloudIPtr cloud){
     center.y = model_y_highest_point;
     center.y *= highest_point.y > 0 ? 1 : -1;
     center.y += highest_point.y;
-    center.z = highest_point.z - model_height/2;
+    center.z = highest_point.z - model_height / 2;
     return center;
 }
 
-CloudPtr ObjectDetection::get_points_from_bounding_boxes(CloudPtr cloud, BoundingBoxArrayPtr boxes){
+CloudPtr ObjectDetection::get_points_from_bounding_boxes(CloudPtr cloud, BoundingBoxArrayPtr boxes) {
     CloudPtr new_cloud(new Cloud);
-    for(const auto &point : cloud->points){
-        for(const auto &box: boxes->boxes){
-            if(is_point_inside_box(point, box)){
+    for (const auto& point : cloud->points) {
+        for (const auto& box : boxes->boxes) {
+            if (is_point_inside_box(point, box)) {
                 new_cloud->points.push_back(point);
             }
         }
@@ -546,34 +555,37 @@ CloudPtr ObjectDetection::get_points_from_bounding_boxes(CloudPtr cloud, Boundin
     return new_cloud;
 }
 
-std::pair<CloudPtr, CloudPtr> ObjectDetection::filter_ground_and_get_normal_and_height(CloudPtr cloud, int sac_model, int iterations, double radius, Eigen::Vector3d &normal, double &ground_height, double eps){
+std::pair<CloudPtr, CloudPtr> ObjectDetection::filter_ground_and_get_normal_and_height(CloudPtr cloud, int sac_model,
+                                                                                       int iterations, double radius,
+                                                                                       Eigen::Vector3d& normal,
+                                                                                       double& ground_height,
+                                                                                       double eps) {
     // Segment ground
-    pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
-    pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+    pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+    pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
     CloudPtr ground(new Cloud);
     CloudPtr without_ground(new Cloud);
 
     pcl::SACSegmentation<Point> seg;
-    seg.setOptimizeCoefficients (true);
-    seg.setModelType (sac_model);
-    seg.setMethodType (pcl::SAC_RANSAC);
-    seg.setDistanceThreshold (radius);
+    seg.setOptimizeCoefficients(true);
+    seg.setModelType(sac_model);
+    seg.setMethodType(pcl::SAC_RANSAC);
+    seg.setDistanceThreshold(radius);
     seg.setMaxIterations(iterations);
     seg.setEpsAngle(eps);
-    pcl::ExtractIndices<pcl::PointXYZ> extract;
-    seg.setInputCloud (cloud);
-    seg.segment (*inliers, *coefficients);
-    if (inliers->indices.size () == 0)
-    {
+    pcl::ExtractIndices<Point> extract;
+    seg.setInputCloud(cloud);
+    seg.segment(*inliers, *coefficients);
+    if (inliers->indices.size() == 0) {
         std::cerr << "Could not estimate a planar model for the given dataset." << std::endl;
         // TODO: check it above
         return {nullptr, nullptr};
     }
-    extract.setNegative (true);
-    extract.setInputCloud (cloud);
-    extract.setIndices (inliers);
+    extract.setNegative(true);
+    extract.setInputCloud(cloud);
+    extract.setIndices(inliers);
     extract.filter(*without_ground);
-    extract.setNegative (false);
+    extract.setNegative(false);
     extract.filter(*ground);
 
     normal << coefficients->values[0], coefficients->values[1], coefficients->values[2];
@@ -581,8 +593,8 @@ std::pair<CloudPtr, CloudPtr> ObjectDetection::filter_ground_and_get_normal_and_
     return {ground, without_ground};
 }
 
-CloudPtr ObjectDetection::align_to_normal(CloudPtr cloud, const Eigen::Vector3d& normal, double ground_height){
-    const auto &up_vector = Eigen::Vector3d::UnitZ();
+CloudPtr ObjectDetection::align_to_normal(CloudPtr cloud, const Eigen::Vector3d& normal, double ground_height) {
+    const auto& up_vector = Eigen::Vector3d::UnitZ();
     Eigen::Vector3d axis = normal.cross(up_vector).normalized();
     float angle = acos(normal.dot(up_vector) / (normal.norm() * up_vector.norm()));
 
@@ -591,6 +603,109 @@ CloudPtr ObjectDetection::align_to_normal(CloudPtr cloud, const Eigen::Vector3d&
     RCLCPP_DEBUG_STREAM(get_logger(), "Rotation matrix: \n" << rotation_matrix);
     Eigen::Vector3d rpy = rotation_matrix.normalized().eulerAngles(2, 1, 0);
     auto transformed_cloud = translate(rotate(cloud, rpy[0], rpy[1], rpy[2]), 0, 0, ground_height);
+    transformed_cloud->height = transformed_cloud->points.size();
+    transformed_cloud->width = 1;
     return transformed_cloud;
 }
 
+std::pair<ObjectDetection::Ellipsoid, Point> ObjectDetection::get_ellipsoid_and_center(CloudIPtr cloud) {
+    const float& max_value = std::numeric_limits<float>::max();
+    const float& min_value = -std::numeric_limits<float>::max();
+    Point max_coords{min_value, min_value, min_value};
+    Point min_coords{max_value, max_value, max_value};
+    for (const auto& point : cloud->points) {
+        max_coords.x = std::max(point.x, max_coords.x);
+        max_coords.y = std::max(point.y, max_coords.y);
+        max_coords.z = std::max(point.z, max_coords.z);
+
+        min_coords.x = std::min(point.x, min_coords.x);
+        min_coords.y = std::min(point.y, min_coords.y);
+        min_coords.z = std::min(point.z, min_coords.z);
+    }
+    Ellipsoid ellipsoid;
+    ellipsoid.radius_x = (max_coords.x - min_coords.x) / 2;
+    ellipsoid.radius_y = (max_coords.y - min_coords.y) / 2;
+    ellipsoid.radius_z = (max_coords.z - min_coords.z) / 2;
+    Point center;
+    center.x = min_coords.x + ellipsoid.radius_x;
+    center.y = min_coords.y + ellipsoid.radius_y;
+    center.z = min_coords.z + ellipsoid.radius_z;
+    RCLCPP_INFO_STREAM(get_logger(), "Ellipsoid radiuses: \n" << ellipsoid << "\n ellipsoid center: \n" << center);
+    RCLCPP_INFO_STREAM(get_logger(), "max:\n\t " << max_coords << "\nmin:\n\t " << min_coords);
+    std::ofstream myfile;
+    myfile.open("/home/rabin/Documents/obsidian/inz/inżynierka/ws/sizes.txt", std::ios::app);
+    myfile << ellipsoid.radius_x << ", " << ellipsoid.radius_y << ", " << ellipsoid.radius_z << ", " << std::endl;
+    myfile.close();
+    return {ellipsoid, center};
+}
+
+MarkersPtr ObjectDetection::make_markers_from_ellipsoids_infos(const std::list<EllipsoidInfo>& ellipsoids_infos) {
+    auto marker_array_msg = std::make_shared<visualization_msgs::msg::MarkerArray>();
+    std::size_t count_ = 0;
+    for (const auto& info : ellipsoids_infos) {
+        visualization_msgs::msg::Marker marker;
+        marker.header.frame_id = "velodyne";
+        marker.ns = "spheres";
+        marker.id = count_;
+
+        marker.type = visualization_msgs::msg::Marker::SPHERE;
+        marker.action = visualization_msgs::msg::Marker::ADD;
+        marker.pose.position.x = info.second.x;
+        marker.pose.position.y = info.second.y;
+        marker.pose.position.z = info.second.z;
+
+        marker.scale.x = info.first.radius_x * 2;
+        marker.scale.y = info.first.radius_y * 2;
+        marker.scale.z = info.first.radius_z * 2;  // Height of the cylinder
+        marker.color.a = 0.2;                      // Alpha
+        marker.color.r = 0.0;                      // Red
+        marker.color.g = 0.0;                      // Green
+        marker.color.b = 0.0;                      // Blue
+        const double& model_x_size = 0.2;  // z modelu
+        const double& model_y_size = 0.4;
+        const double& model_z_size = 1.5;
+
+        if(std::abs(marker.scale.y - model_y_size) < 0.1*model_y_size){
+            marker.color.g = 1.0;
+        }
+        else{
+            marker.color.r = 1.0;   
+        }
+
+
+
+
+        marker.lifetime = rclcpp::Duration(0, 2000);
+        count_++;
+        marker_array_msg->markers.push_back(marker);
+    }
+    for (std::size_t i = ellipsoids_infos.size(); i < max_detected_legs; ++i) {
+        visualization_msgs::msg::Marker marker;
+        marker.header.frame_id = "velodyne";
+        marker.ns = "spheres";
+        marker.id = i;
+        marker.action = visualization_msgs::msg::Marker::DELETE;
+        marker_array_msg->markers.push_back(marker);
+    }
+    return marker_array_msg;
+}
+
+std::ostream& operator<<(std::ostream& os, const ObjectDetection::Ellipsoid& ellipsoid) {
+    os << "Ellipsoid(" << ellipsoid.radius_x << ", " << ellipsoid.radius_y << ", " << ellipsoid.radius_z << ")";
+    return os;
+}
+
+Histogram ObjectDetection::segment_local_peeks(const Histogram& histogram, std::size_t slope, std::size_t range) {
+    Histogram segmented_histogram(histogram);
+    for (auto i = range; i < histogram.size() - range; ++i) {
+        for (auto j = 0; j < histogram[i].size(); ++j) {
+            for (auto k = 1u; k <= range; ++k) {
+                if (segmented_histogram[i][j] != 0 &&
+                    (histogram[i][j] < histogram[i - k][j] + slope || histogram[i][j] < histogram[i + k][j] + slope)) {
+                    segmented_histogram[i][j] = 0;
+                }
+            }
+        }
+    }
+    return segmented_histogram;
+}
