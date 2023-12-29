@@ -6,9 +6,8 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 
-#include <objects_detection/utils.hpp>
-
 #include <objects_detection/object_detection.hpp>
+#include <objects_detection/utils.hpp>
 
 std::string path_to_pcds;
 
@@ -16,118 +15,82 @@ int load_test_cloud(CloudPtr cloud, const char* file_name = "test_cloud.pcd") {
     auto path = path_to_pcds + std::string(file_name);
     return pcl::io::loadPCDFile<Point>(path, *cloud);
 }
-
-void save_cloud(const std::string& name, CloudPtr cloud) {
+template<typename T>
+void save_cloud(const std::string& name, std::shared_ptr<pcl::PointCloud<T>> cloud) {
     pcl::PCDWriter writer;
     auto path = path_to_pcds + std::string(name);
-    writer.write<Point>(path, *cloud);
+    writer.write<T>(path, *cloud);
 }
 
-// TEST(PCDFileTest, LoadPCDFile) {
-//     CloudPtr cloud(new Cloud);
-//     auto load_result = load_test_cloud(cloud);
-//     ASSERT_EQ(load_result, 0);
-//     (void)load_result;
+TEST(ObjectDetectionTest, ToCharts) {
+    CloudPtr cloud_raw(new Cloud);
+    ObjectDetection object_detection;
+    load_test_cloud(cloud_raw, "velodyne_raw_13.pcd");
+    auto cloud = object_detection.remove_far_points_from_ros2bag_converter_bug(cloud_raw, 5.0);
 
-//     EXPECT_EQ(cloud->size(), (std::size_t)5669);
-// }
+    // Ground Filtering
+    Eigen::Vector3d normal_vec;
+    double ground_height;
+    auto filtered_ground_clouds = object_detection.filter_ground_and_get_normal_and_height(
+        cloud, pcl::SACMODEL_PLANE, 800, 0.05, std::ref(normal_vec), std::ref(ground_height));
+    auto ground = filtered_ground_clouds.first;
+    auto without_ground = filtered_ground_clouds.second;
 
-// TEST(RemovingOutliersTest, ThreeVariants) {
-//     CloudPtr cloud(new Cloud);
-//     auto load_result = load_test_cloud(cloud);
-//     ASSERT_EQ(load_result, 0);
-//     (void)load_result;
+    EXPECT_THAT(ground->points.size(), testing::Le(cloud->points.size()));
+    EXPECT_THAT(without_ground->points.size(), testing::Le(cloud->points.size()));
+    EXPECT_THAT(ground->points.size(), testing::Le(without_ground->points.size()));
+    save_cloud("ground_5.pcd", ground);
+    save_cloud("without_ground_5.pcd", without_ground);
 
-//     OutlierRemoval algorythm;
-//     auto cloud_test_1 = algorythm.statistical_pcl(cloud, 20, -0.01);
-//     save_cloud("statistical_removing_outliers_20_m0.01.pcd", cloud_test_1);
-//     EXPECT_THAT(cloud_test_1->points.size(), testing::Le(cloud->points.size()));
+    auto aligned_cloud = object_detection.align_to_normal(without_ground, normal_vec, ground_height);
+    EXPECT_THAT(aligned_cloud->points.size(), without_ground->points.size());
+    save_cloud("aligned_5.pcd", aligned_cloud);
 
-//     auto cloud_test_2 = algorythm.statistical_pcl(cloud, 50, -0.01);
-//     save_cloud("statistical_removing_outliers_50_m0.01.pcd", cloud_test_2);
-//     EXPECT_THAT(cloud_test_2->points.size(), testing::Le(cloud->points.size()));
+    auto tunneled_cloud = object_detection.remove_points_beyond_tunnel(aligned_cloud);
+    EXPECT_THAT(tunneled_cloud->points.size(), testing::Le(aligned_cloud->points.size()));
+    save_cloud("tunneled_5.pcd", tunneled_cloud);
 
-//     auto cloud_test_3 = algorythm.statistical_pcl(cloud, 20, -0.05);
-//     save_cloud("statistical_removing_outliers_20_m0.05.pcd", cloud_test_3);
-//     EXPECT_THAT(cloud_test_3->points.size(), testing::Le(cloud->points.size()));
-// }
+    auto histogram = object_detection.create_histogram(tunneled_cloud, 0.1, 4.00, 1.5);
+    auto threshold_histogram_yz = object_detection.threshold_histogram(histogram, 15, 30);
+    auto density_filtered_yz =
+        object_detection.filter_with_density_on_x_image(tunneled_cloud, threshold_histogram_yz, 0.1, 4.00, 1.5);
+    EXPECT_THAT(density_filtered_yz->points.size(), testing::Le(tunneled_cloud->points.size()));
+    save_cloud("density_filtered_yz_5.pcd", density_filtered_yz);
 
-// TEST(OnlyGroundRemoval, DummyThreeVariants) {
-//     CloudPtr cloud(new Cloud);
-//     auto load_result = load_test_cloud(cloud);
-//     ASSERT_EQ(load_result, 0);
-//     (void)load_result;
+    auto rotated_for_ground_histogram = rotate(tunneled_cloud, 0.0, -M_PI / 2.0, 0.0);
+    auto ground_histogram = object_detection.create_histogram(rotated_for_ground_histogram, 0.1, 4.00, 5.0);
+    auto ground_local_peeks = object_detection.segment_local_peeks(ground_histogram, 10, 3);
+    auto density_filtered_xy =
+        object_detection.filter_with_density_on_z_image(tunneled_cloud, ground_local_peeks, 0.1, 4.00, 5.0);
+    EXPECT_THAT(density_filtered_xy->points.size(), testing::Le(tunneled_cloud->points.size()));
+    save_cloud("density_filtered_xy_5.pcd", density_filtered_xy);
 
-//     // GroundRemoval ground_removal_argorythm;
-//     // auto cloud_test_1 = ground_removal_argorythm.dummy(cloud, 0.1);
-//     // save_cloud("dummy_ground_removal_0.1.pcd", cloud_test_1);
+    auto merged_density_cloud{object_detection.merge_clouds({density_filtered_yz, density_filtered_xy}, 0.0001)};
+    EXPECT_THAT(density_filtered_xy->points.size(), testing::Le(merged_density_cloud->points.size()));
+    EXPECT_THAT(density_filtered_yz->points.size(), testing::Le(merged_density_cloud->points.size()));
+    save_cloud("merged_density_5.pcd", merged_density_cloud);
 
-//     // auto cloud_test_2 = ground_removal_argorythm.dummy(cloud, 0.3);
-//     // save_cloud("dummy_ground_removal_0.3.pcd", cloud_test_2);
+    ClusterExtraction cluster;
+    cluster.euclidean_tolerance = 0.4;
+    cluster.euclidean_min_size = 20;
+    cluster.euclidean_max_size =  500;
+    CloudIPtrs clustered_legs = cluster.euclidean(merged_density_cloud);
 
-//     // auto cloud_test_3 = ground_removal_argorythm.dummy(cloud, 0.5);
-//     // save_cloud("dummy_ground_removal_0.5.pcd", cloud_test_3);
-// }
-
-// TEST(OnlyGroundRemoval, GroundPlaneRemovalThreeVariants) {
-//     CloudPtr cloud(new Cloud);
-//     auto load_result = load_test_cloud(cloud);
-//     ASSERT_EQ(load_result, 0);
-//     (void)load_result;
-
-//     auto rotated_cloud = rotate(cloud, 0.0, 0.15, 0.0);
-//     GroundRemoval ground_removal_argorythm;
-//     auto cloud_test_1 = ground_removal_argorythm.planar_segmentation(rotated_cloud, 0.15, 0.15);
-//     save_cloud("plane_ground_removal_0.15_0.15.pcd", cloud_test_1);
-//     EXPECT_THAT(cloud_test_1->points.size(), testing::Le(cloud->points.size()));
-
-//     auto cloud_test_2 = ground_removal_argorythm.planar_segmentation(rotated_cloud, 0.15, 0.01);
-//     save_cloud("plane_ground_removal_0.15_0.01.pcd", cloud_test_2);
-//     EXPECT_THAT(cloud_test_2->points.size(), testing::Le(cloud->points.size()));
-
-//     auto cloud_test_3 = ground_removal_argorythm.planar_segmentation(rotated_cloud, 0.05, 0.15);
-//     save_cloud("plane_ground_removal_0.05_0.15.pcd", cloud_test_3);
-//     EXPECT_THAT(cloud_test_3->points.size(), testing::Le(cloud->points.size()));
-
-//     auto cloud_test_4 = ground_removal_argorythm.planar_segmentation(rotated_cloud, 0.05, 0.01);
-//     save_cloud("plane_ground_removal_0.05_0.01.pcd", cloud_test_4);
-//     EXPECT_THAT(cloud_test_4->points.size(), testing::Le(cloud->points.size()));
-// }
-
-TEST(PlaneFilter, PCLRANSAC) {
-    CloudPtr cloud(new Cloud);
-    load_test_cloud(cloud, "filtered_legs_0.pcd");
-    pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
-    pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
-
-    pcl::SACSegmentation<pcl::PointXYZ> seg;
-    seg.setOptimizeCoefficients(true);
-    seg.setMethodType(pcl::SAC_RANSAC);
-    seg.setModelType(pcl::SACMODEL_PLANE);
-    // seg.setProbability(1.0);
-    seg.setMaxIterations (1000);
-    seg.setDistanceThreshold(0.05);
-    // seg.setEpsAngle(0.2);
-    seg.setInputCloud(cloud);
-    seg.segment(*inliers, *coefficients);
-    if (inliers->indices.size() == 0) {
-        PCL_ERROR("Could not estimate a planar model for the given dataset.\n");
-        // ASSERT();
+    CloudIPtr merged_legs(new CloudI);
+    for (auto& clustered_cloud : clustered_legs) {
+        if (clustered_cloud->size()) {
+            *merged_legs += *clustered_cloud;
+        }
     }
-    CloudPtr plane_cloud(new Cloud);
-    for (const auto& idx : inliers->indices){
-        Point p = cloud->points[idx];
-        plane_cloud->points.push_back(p);
-    }
-    plane_cloud->width = 1;
-    plane_cloud->height = plane_cloud->points.size();
-
-    save_cloud("Test_saved_leg.pcd", plane_cloud);
-    EXPECT_THAT(plane_cloud->points.size(), testing::Le(cloud->points.size()));
+    merged_legs->width = 1;
+    merged_legs->height = merged_legs->size();
+    save_cloud("merged_legs_5.pcd", merged_legs);
 }
 
 int main(int argc, char** argv) {
     testing::InitGoogleTest(&argc, argv);
+    rclcpp::init(argc, argv);
+
     path_to_pcds = ament_index_cpp::get_package_share_directory("objects_detection");
     path_to_pcds += std::string("/test_data/");
     return RUN_ALL_TESTS();

@@ -4,6 +4,8 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <fstream>
+#include <yaml-cpp/yaml.h>
 
 #include <pcl/common/transforms.h>
 #include <pcl/io/pcd_io.h>
@@ -41,7 +43,7 @@ class ObjectDetection : public rclcpp::Node {
     };
     using EllipsoidInfo = std::pair<Ellipsoid, Point>;
 
-   private:
+//    private:
 
 
     void declare_parameters();
@@ -136,7 +138,8 @@ class ObjectDetection : public rclcpp::Node {
     void save_densities_to_file(const std::vector<std::size_t> &densities, const std::string &path);
 
     EllipsoidInfo get_ellipsoid_and_center(CloudIPtr cloud);
-
+    double duration;
+    std::string filename;
 };
 
 

@@ -11,6 +11,7 @@ find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(yaml-cpp REQUIRED)
 find_package(vision_msgs REQUIRED)
 
 set(CMAKE_BUILD_TYPE Release)
@@ -41,6 +42,7 @@ target_include_directories(
 
 target_link_libraries(detection_library
   ${PCL_LIBRARIES}
+  ${YAML_CPP_LIBRARIES}
 )
 
 ament_target_dependencies(detection_library
@@ -81,6 +83,7 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gmock REQUIRED)
   ament_add_gmock(${PROJECT_NAME}_tests
     test/test_tutorial.cpp
+    src/object_detection.cpp
   )
   target_include_directories(${PROJECT_NAME}_tests PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -110,6 +113,11 @@ add_executable(save_pointcloud
   src/save_pointcloud.cpp
 )
 
+add_executable(create_figures
+  src/create_figures_for_paper.cpp
+  src/object_detection.cpp
+)
+
 ament_target_dependencies(object_detection
   rclcpp
   sensor_msgs
@@ -136,12 +144,20 @@ target_include_directories(
   include
 )
 
+target_include_directories(
+  create_figures
+  PUBLIC
+  include
+)
+
 target_link_libraries(object_detection ${PCL_LIBRARIES} detection_library)
 target_link_libraries(save_pointcloud ${PCL_LIBRARIES} detection_library)
+target_link_libraries(create_figures ${PCL_LIBRARIES} detection_library)
 
 install(TARGETS
   object_detection
   save_pointcloud
+  create_figures
   DESTINATION lib/${PROJECT_NAME})
 
 ament_package()
