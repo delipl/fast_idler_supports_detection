@@ -28,9 +28,6 @@ include_directories(
 
 add_library(detection_library SHARED
   src/utils.cpp
-  src/down_sampling.cpp
-  src/outlier_removal.cpp
-  src/ground_removal.cpp
   src/cluster_extraction.cpp
 )
 
@@ -100,7 +97,6 @@ endif()
 install(DIRECTORY
   test_data
   launch
-  config
   DESTINATION share/${PROJECT_NAME}
 )
 
@@ -111,11 +107,6 @@ add_executable(object_detection
 
 add_executable(save_pointcloud
   src/save_pointcloud.cpp
-)
-
-add_executable(create_figures
-  src/create_figures_for_paper.cpp
-  src/object_detection.cpp
 )
 
 ament_target_dependencies(object_detection
@@ -144,20 +135,22 @@ target_include_directories(
   include
 )
 
-target_include_directories(
-  create_figures
-  PUBLIC
-  include
-)
-
 target_link_libraries(object_detection ${PCL_LIBRARIES} detection_library)
 target_link_libraries(save_pointcloud ${PCL_LIBRARIES} detection_library)
-target_link_libraries(create_figures ${PCL_LIBRARIES} detection_library)
 
 install(TARGETS
   object_detection
   save_pointcloud
-  create_figures
   DESTINATION lib/${PROJECT_NAME})
+
+ament_python_install_package(${PROJECT_NAME})
+install(PROGRAMS
+  scripts/clasification_analizer.py
+  scripts/histogram.py
+  scripts/plot_on_surface.py
+  scripts/isometic.py
+  scripts/point_cloud_cli.py
+  DESTINATION lib/${PROJECT_NAME}/
+)
 
 ament_package()

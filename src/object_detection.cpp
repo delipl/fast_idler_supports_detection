@@ -68,11 +68,6 @@ void ObjectDetection::get_parameters() {
     ground_histogram_max = std::stoi(get_parameter("general.ground.histogram.max").as_string());
     ground_histogram_a = std::stoi(get_parameter("general.ground.histogram.a").as_string());
 
-    outlier_remover.radius_outlier_neighbors_count =
-        std::stoi(get_parameter("outlier_remover.radius_outlier.neighbors_count").as_string());
-    outlier_remover.radius_outlier_radius =
-        std::stod(get_parameter("outlier_remover.radius_outlier.radius").as_string());
-
     clusteler.euclidean_tolerance = std::stod(get_parameter("clusteler.euclidean.tolerance").as_string());
     clusteler.euclidean_max_size = std::stoi(get_parameter("clusteler.euclidean.max_size").as_string());
     clusteler.euclidean_min_size = std::stoi(get_parameter("clusteler.euclidean.min_size").as_string());
@@ -120,97 +115,109 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
         return;
     }
 
+    auto normalization_start = std::chrono::high_resolution_clock::now();
     auto frame = msg->header.frame_id;
     auto cloud_raw{convert_point_cloud2_to_cloud_ptr(msg)};
     auto cloud = remove_far_points_from_ros2bag_converter_bug(cloud_raw, 5.0);
-    auto without_right = remove_right_points(cloud);
 
     // Ground Filtering
     Eigen::Vector3d normal_vec;
     double ground_height;
+
+    CloudPtr cloud_for_ground_detection(new Cloud);
+    for (const auto& point : cloud->points) {
+        if (std::abs(point.y) < 2.0) {
+            cloud_for_ground_detection->push_back(point);
+        }
+    }
     auto filtered_ground_clouds = filter_ground_and_get_normal_and_height(
-        cloud, pcl::SACMODEL_PLANE, 800, 0.05, std::ref(normal_vec), std::ref(ground_height));
+        cloud_for_ground_detection, pcl::SACMODEL_PLANE, 800, 0.05, std::ref(normal_vec), std::ref(ground_height));
     auto ground = filtered_ground_clouds.first;
     auto without_ground = filtered_ground_clouds.second;
 
+    auto aligned_cloud = align_to_normal(without_ground, normal_vec, ground_height);
+    auto tunneled_cloud = remove_points_beyond_tunnel(aligned_cloud);
+    auto normalization_end = std::chrono::high_resolution_clock::now();
+    normalization_duration_count =
+        std::chrono::duration_cast<std::chrono::microseconds>(normalization_end - normalization_start).count();
+
     ground_pub_->publish(convert_cloud_ptr_to_point_cloud2(ground, frame, this));
     without_ground_pub_->publish(convert_cloud_ptr_to_point_cloud2(without_ground, frame, this));
-    auto aligned_cloud = align_to_normal(without_ground, normal_vec, ground_height);
     transformed_pub_->publish(convert_cloud_ptr_to_point_cloud2(aligned_cloud, frame, this));
-
-    auto tunneled_cloud = remove_points_beyond_tunnel(aligned_cloud);
     tunneled_pub_->publish(convert_cloud_ptr_to_point_cloud2(cloud, frame, this));
 
+    auto density_segmentation_start = std::chrono::high_resolution_clock::now();
     auto histogram = create_histogram(tunneled_cloud, forward_resolution, tunnel_width, tunnel_height);
-    forward_density_histogram_pub_->publish(create_image_from_histogram(histogram));
-
     auto clustered_histogram = threshold_histogram(histogram, forward_histogram_min, forward_histogram_max);
-    // auto removed_columns = remove_low_density_columns(clustered_histogram, forward_column_density_threshold);
-    forward_density_clustered_histogram_pub_->publish(create_image_from_histogram(clustered_histogram));
-
     auto low_density_cloud = filter_with_density_on_x_image(tunneled_cloud, clustered_histogram, forward_resolution,
                                                             tunnel_width, tunnel_height);
-
-    forward_hist_filtered_pub_->publish(convert_cloud_ptr_to_point_cloud2(low_density_cloud, frame, this));
-
     auto rotated_for_ground_histogram = rotate(tunneled_cloud, 0.0, -M_PI / 2.0, 0.0);
     auto ground_histogram =
         create_histogram(rotated_for_ground_histogram, ground_resolution, tunnel_width, tunnel_length);
-    // auto densities = save_histogram_to_file(histogram);
-    ground_density_histogram_pub_->publish(create_image_from_histogram(ground_histogram));
-    // auto multiplied_ground_histogram = multiply_histogram_by_exp(ground_histogram, ground_histogram_a);
-    // ground_density_histogram_multiplied_pub_->publish(create_image_from_histogram(multiplied_ground_histogram));
-
-    // auto clustered_ground_histogram =
-    //     threshold_histogram(multiplied_ground_histogram, ground_histogram_min, ground_histogram_max);
     auto clustered_ground_histogram = segment_local_peeks(ground_histogram, 10, 3);
-    ground_density_clustered_histogram_pub_->publish(create_image_from_histogram(clustered_ground_histogram));
     auto high_density_top_cloud = filter_with_density_on_z_image(tunneled_cloud, clustered_ground_histogram,
                                                                  ground_resolution, tunnel_width, tunnel_length);
 
-    top_hist_filtered_pub_->publish(convert_cloud_ptr_to_point_cloud2(high_density_top_cloud, frame, this));
-
     auto merged_dencity_cloud{merge_clouds({low_density_cloud, high_density_top_cloud}, 0.0001)};
+    auto density_segmentation_end = std::chrono::high_resolution_clock::now();
+    density_segmentation_duration_count =
+        std::chrono::duration_cast<std::chrono::microseconds>(density_segmentation_end - density_segmentation_start)
+            .count();
+
+    forward_density_histogram_pub_->publish(create_image_from_histogram(histogram));
+    forward_density_clustered_histogram_pub_->publish(create_image_from_histogram(clustered_histogram));
+    forward_hist_filtered_pub_->publish(convert_cloud_ptr_to_point_cloud2(low_density_cloud, frame, this));
+    ground_density_clustered_histogram_pub_->publish(create_image_from_histogram(clustered_ground_histogram));
+    ground_density_histogram_pub_->publish(create_image_from_histogram(ground_histogram));
+    top_hist_filtered_pub_->publish(convert_cloud_ptr_to_point_cloud2(high_density_top_cloud, frame, this));
     merged_density_clouds_pub_->publish(convert_cloud_ptr_to_point_cloud2(merged_dencity_cloud, frame, this));
 
+    auto clusterization_start = std::chrono::high_resolution_clock::now();
     CloudIPtrs clustered_clouds = clusteler.euclidean(high_density_top_cloud);
     max_detected_legs = std::max(max_detected_legs, clustered_clouds.size());
     CloudIPtr merged_clustered_cloud(new CloudI);
 
-    std::list<std::pair<Ellipsoid, Point>> ellipsoids_infos;
+    std::list<EllipsoidInfo> ellipsoids_infos;
     std::stringstream points_stream;
+    for (auto& clustered_cloud : clustered_clouds) {
+        if (clustered_cloud->size()) {
+            *merged_clustered_cloud += *clustered_cloud;
+        }
+    }
+
+    auto clusterization_end = std::chrono::high_resolution_clock::now();
+    clusterization_duration_count =
+        std::chrono::duration_cast<std::chrono::microseconds>(clusterization_end - clusterization_start).count();
+    clustered_conveyor_pub_->publish(convert_cloudi_ptr_to_point_cloud2(merged_clustered_cloud, frame, this));
+
+    auto estimation_start = std::chrono::high_resolution_clock::now();
     for (auto& clustered_cloud : clustered_clouds) {
         if (clustered_cloud->size()) {
             auto ellipsoide_info = get_ellipsoid_and_center(clustered_cloud);
             ellipsoids_infos.push_back(ellipsoide_info);
-            *merged_clustered_cloud += *clustered_cloud;
         }
     }
-    clustered_conveyor_pub_->publish(convert_cloudi_ptr_to_point_cloud2(merged_clustered_cloud, frame, this));
+    auto estimation_end = std::chrono::high_resolution_clock::now();
+    estimation_duration_count =
+        std::chrono::duration_cast<std::chrono::microseconds>(estimation_end - estimation_start).count();
 
-    // auto markers = make_markers_from_pointclouds(clustered_clouds);
+    auto classification_start = std::chrono::high_resolution_clock::now();
+    auto classificated_ellipsoides_info = classificate(ellipsoids_infos);
+    auto classification_end = std::chrono::high_resolution_clock::now();
+    classification_duration_count =
+        std::chrono::duration_cast<std::chrono::microseconds>(classification_end - classification_start).count();
 
     auto bounding_boxes_msg = make_bounding_boxes_from_pointclouds(clustered_clouds, frame);
+    auto spheres = make_markers_from_ellipsoids_infos(classificated_ellipsoides_info);
     bounding_box_pub_->publish(*bounding_boxes_msg);
-
-    auto end_not_end = std::chrono::high_resolution_clock::now();
-    duration = std::chrono::duration_cast<std::chrono::microseconds>(end_not_end - start).count()/ 10e6;
-
-    auto spheres = make_markers_from_ellipsoids_infos(ellipsoids_infos);
     markers_pub_->publish(*spheres);
-    for (const auto& sphere : spheres->markers) {
-        points_stream << "(" << sphere.pose.position.x << "," << sphere.pose.position.y << "," << sphere.pose.position.z
-                      << ")"
-                      << "\t";
-    }
     only_legs_pub_->publish(convert_cloudi_ptr_to_point_cloud2(merged_clustered_cloud, frame, this));
 
+    ++counter;
+    save_data_to_yaml(classificated_ellipsoides_info);
     auto end = std::chrono::high_resolution_clock::now();
     auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-    RCLCPP_INFO_STREAM(get_logger(), "Callback Took: " << microseconds / 10e6 << "s and found "
-                                                       << spheres->markers.size()
-                                                       << " legs. Positions: " << points_stream.str());
-    ++counter;
+    RCLCPP_INFO_STREAM(get_logger(), "Callback Took: " << microseconds / 10e6 << "s");
 }
 
 CloudPtr ObjectDetection::remove_points_beyond_tunnel(CloudPtr cloud) {
@@ -277,9 +284,8 @@ sensor_msgs::msg::Image ObjectDetection::create_image_from_histogram(const Histo
 }
 
 void ObjectDetection::save_histogram_to_file(const Histogram& histogram, const std::string& file_name) {
-    std::ofstream file(
-        "/home/rabin/Documents/obsidian/inz/inżynierka/ws/to_histogram_pcds/densities/densities_" +
-        file_name + ".txt");
+    std::ofstream file("/home/rabin/Documents/obsidian/inz/inżynierka/ws/to_histogram_pcds/densities/densities_" +
+                       file_name + ".txt");
     if (!file.is_open()) {
         std::cerr << "Error: Could not open the file." << std::endl;
         return;
@@ -382,8 +388,6 @@ Histogram ObjectDetection::remove_low_density_columns(const Histogram& histogram
 
 MarkersPtr ObjectDetection::make_markers_from_pointclouds(const CloudIPtrs& clustered_clouds) {
     auto marker_array_msg = std::make_shared<visualization_msgs::msg::MarkerArray>();
-    const double& model_z_size = 0.3;
-    float max_z = -std::numeric_limits<float>::max();
     std::size_t count_ = 0;
     for (const auto& leg : clustered_clouds) {
         visualization_msgs::msg::Marker marker;
@@ -602,7 +606,7 @@ CloudPtr ObjectDetection::align_to_normal(CloudPtr cloud, const Eigen::Vector3d&
     return transformed_cloud;
 }
 
-std::pair<ObjectDetection::Ellipsoid, Point> ObjectDetection::get_ellipsoid_and_center(CloudIPtr cloud) {
+ObjectDetection::EllipsoidInfo ObjectDetection::get_ellipsoid_and_center(CloudIPtr cloud) {
     const float& max_value = std::numeric_limits<float>::max();
     const float& min_value = -std::numeric_limits<float>::max();
     Point max_coords{min_value, min_value, min_value};
@@ -626,20 +630,89 @@ std::pair<ObjectDetection::Ellipsoid, Point> ObjectDetection::get_ellipsoid_and_
     center.z = min_coords.z + ellipsoid.radius_z;
     // RCLCPP_INFO_STREAM(get_logger(), "Ellipsoid radiuses: " << ellipsoid << "\n ellipsoid center: \n" << center);
 
-    std::ofstream myfile;
-    myfile.open("/home/rabin/Documents/obsidian/inz/inżynierka/ws/sizes.txt", std::ios::app);
-    myfile << ellipsoid.radius_x << ", " << ellipsoid.radius_y << ", " << ellipsoid.radius_z << ", " << std::endl;
-    myfile.close();
-    return {ellipsoid, center};
+    return {ellipsoid, center, "unknown"};
+}
+
+std::list<ObjectDetection::EllipsoidInfo> ObjectDetection::classificate(
+    const std::list<ObjectDetection::EllipsoidInfo>& ellipsoids_infos) {
+    std::list<ObjectDetection::EllipsoidInfo> classified_ellipsoids_infos{ellipsoids_infos};
+    for (auto& info : classified_ellipsoids_infos) {
+        const double& model_x_size = 0.2;  // z modelu
+        const double& model_y_size = 0.4;
+        const double& model_z_size = 0.58;
+        const double& model2_z_size = 0.68;
+        RCL_UNUSED(model_x_size);
+        RCL_UNUSED(model_y_size);
+
+        auto z_min = info.center.z - info.radiuses.radius_z;
+        // From ground +- 10cm (plane segmentation) to full 0.6m size
+        if (info.radiuses.radius_x < model_x_size and std::abs(z_min) < 0.1) {
+            if ((std::abs(2 * info.radiuses.radius_z - model_z_size) < 0.1 * model_z_size) && info.center.y > 0) {
+                info.class_name = "0.6m_height_support";
+            }
+            // From ground to full 0.7m size
+            else if ((std::abs(2 * info.radiuses.radius_z - model2_z_size) < 0.1 * model2_z_size) &&
+                     info.center.y < 0) {
+                info.class_name = "0.7m_height_support";
+            }
+        } 
+        else {
+            info.class_name = "unknown";
+        }
+    }
+    return classified_ellipsoids_infos;
+}
+
+void ObjectDetection::save_data_to_yaml(const std::list<EllipsoidInfo>& ellipsoids_infos) {
+    YAML::Node frame_node;
+    YAML::Node yaml_node;
+    std::size_t detected_count;
+    frame_node["time"] = rclcpp::Clock{}.now().seconds();
+    for (const auto& info : ellipsoids_infos) {
+        YAML::Node ellipsoidNode;
+        ellipsoidNode["position"]["x"] = info.center.x;
+        ellipsoidNode["position"]["y"] = info.center.y;
+        ellipsoidNode["position"]["z"] = info.center.z;
+
+        ellipsoidNode["major_axes"]["x"] = info.radiuses.radius_x;
+        ellipsoidNode["major_axes"]["y"] = info.radiuses.radius_y;
+        ellipsoidNode["major_axes"]["z"] = info.radiuses.radius_z;
+
+        ellipsoidNode["class"] = info.class_name;
+        if (info.class_name != "unknown") {
+            ++detected_count;
+        }
+
+        frame_node["detected_ellipsoids"].push_back(ellipsoidNode);
+    }
+    std::ofstream file(filename, std::ios::app);
+
+    auto start = std::chrono::high_resolution_clock::now();
+    frame_node["normalization_duration"] = normalization_duration_count / 10e6;
+    frame_node["density_segmentation_duration"] = density_segmentation_duration_count / 10e6;
+    frame_node["clusterization_duration"] = clusterization_duration_count / 10e6;
+    frame_node["classification_duration"] = classification_duration_count / 10e6;
+    frame_node["estimation_duration"] = estimation_duration_count / 10e6;
+    auto processing_duration = normalization_duration_count + density_segmentation_duration_count +
+                               clusterization_duration_count + classification_duration_count +
+                               estimation_duration_count;
+    frame_node["processing_duration"] = processing_duration / 10e6;
+
+    yaml_node.push_back(frame_node);
+    if (file.is_open()) {
+        file << yaml_node << std::endl;
+        auto end = std::chrono::high_resolution_clock::now();
+        auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+        RCLCPP_INFO_STREAM(get_logger(), "Data saved to file. Saving took: " << microseconds / 10e3 << "ms");
+    } else {
+        RCLCPP_ERROR(get_logger(), "Cannot save data!");
+    }
 }
 
 MarkersPtr ObjectDetection::make_markers_from_ellipsoids_infos(const std::list<EllipsoidInfo>& ellipsoids_infos) {
     auto marker_array_msg = std::make_shared<visualization_msgs::msg::MarkerArray>();
     std::size_t count_ = 0;
-    std::size_t detected_count = 0;
-    YAML::Node frameNode;
-    YAML::Node yamlNode;
-    frameNode["time"] = rclcpp::Clock{}.now().seconds();
+
     for (const auto& info : ellipsoids_infos) {
         visualization_msgs::msg::Marker marker;
         marker.header.frame_id = "velodyne";
@@ -648,84 +721,46 @@ MarkersPtr ObjectDetection::make_markers_from_ellipsoids_infos(const std::list<E
 
         marker.type = visualization_msgs::msg::Marker::SPHERE;
         marker.action = visualization_msgs::msg::Marker::ADD;
-        marker.pose.position.x = info.second.x;
-        marker.pose.position.y = info.second.y;
-        marker.pose.position.z = info.second.z;
+        marker.pose.position.x = info.center.x;
+        marker.pose.position.y = info.center.y;
+        marker.pose.position.z = info.center.z;
 
-        marker.scale.x = info.first.radius_x * 2;
-        marker.scale.y = info.first.radius_y * 2;
-        marker.scale.z = info.first.radius_z * 2;  // Height of the cylinder
-        marker.color.a = 0.2;                      // Alpha
-        marker.color.r = 0.0;                      // Red
-        marker.color.g = 0.0;                      // Green
-        marker.color.b = 0.0;                      // Blue
-        const double& model_x_size = 0.2;          // z modelu
-        const double& model_y_size = 0.4;
-        const double& model_z_size = 0.58;
-        const double& model2_z_size = 0.68;
-        marker.lifetime = rclcpp::Duration(0, 2000);
-        std::string class_name = "None";
-        // Gdy pomiary są od ziemi
-        auto z_min = info.second.z - info.first.radius_z;
-        if (std::abs(info.first.radius_z - marker.pose.position.z) < 0.1 &&  // Gdy zaczyna się od ziemi
-            (std::abs(2 * info.first.radius_z - model_z_size) < 0.1 * model_z_size) && marker.pose.position.y < 0) {
+        marker.scale.x = info.radiuses.radius_x * 2;
+        marker.scale.y = info.radiuses.radius_y * 2;
+        marker.scale.z = info.radiuses.radius_z * 2;  // Height of the cylinder
+        marker.color.a = 0.2;                         // Alpha
+        marker.color.r = 0.0;                         // Red
+        marker.color.g = 0.0;                         // Green
+        marker.color.b = 0.0;                         // Blue
+
+        if (info.class_name == "0.6m_height_support") {
+            marker.color.r = 0.0;
             marker.color.g = 1.0;
-            class_name = "0.6m_height_support";
-            ++detected_count;
-        } else if (std::abs(info.first.radius_z - marker.pose.position.z < 0.1) &&
-                   (std::abs(2 * info.first.radius_z - model_z_size) < 0.1 * model2_z_size) &&
-                   marker.pose.position.y > 0) {
+            marker.color.b = 0.0;
+            RCLCPP_INFO_STREAM(get_logger(), "Found: 0.6m_height_support");
+        } else if (info.class_name == "0.7m_height_support") {
+            marker.color.r = 0.7;
             marker.color.g = 1.0;
-            class_name = "0.7m_height_support";
-            ++detected_count;
-        } else {
+            marker.color.b = 0.3;
+            RCLCPP_INFO_STREAM(get_logger(), "Found: 0.7m_height_support");
+
+        } else if (info.class_name == "unknown") {
             marker.color.r = 1.0;
             marker.color.g = 0.0;
             marker.color.b = 0.0;
         }
         count_++;
-        
-        if (marker.color.g == 1.0) {
-            YAML::Node ellipsoidNode;
-            ellipsoidNode["position"]["x"] = info.second.x;
-            ellipsoidNode["position"]["y"] = info.second.y;
-            ellipsoidNode["position"]["z"] = info.second.z;
-
-            ellipsoidNode["major_axes"]["x"] = info.first.radius_x;
-            ellipsoidNode["major_axes"]["y"] = info.first.radius_y;
-            ellipsoidNode["major_axes"]["z"] = info.first.radius_z;
-
-            ellipsoidNode["class"] = class_name;
-
-            frameNode["detected_ellipsoids"].push_back(ellipsoidNode);
-
-            // Ustawiamy czas
-
-            // Otwieramy plik do zapisu
-
-        }
         marker_array_msg->markers.push_back(marker);
     }
-    std::ofstream file(filename, std::ios_base::app);
-    if (file.is_open()) {
-        // Zapisujemy strukturę YAML do pliku
-        frameNode["detected_ellipsoids_count"] = detected_count;
-        frameNode["duration"] = duration;
-        yamlNode.push_back(frameNode);
 
-        file << yamlNode << std::endl;
-        std::cout << "Dane zapisane do pliku." << std::endl;
-    } else {
-        std::cerr << "Nie można otworzyć pliku do zapisu." << std::endl;
+    for (std::size_t i = ellipsoids_infos.size(); i < max_detected_legs; ++i) {
+        visualization_msgs::msg::Marker marker;
+        marker.header.frame_id = "velodyne";
+        marker.ns = "spheres";
+        marker.id = i;
+        marker.action = visualization_msgs::msg::Marker::DELETE;
+        marker_array_msg->markers.push_back(marker);
     }
-    // for (std::size_t i = ellipsoids_infos.size(); i < max_detected_legs; ++i) {
-    //     visualization_msgs::msg::Marker marker;
-    //     marker.header.frame_id = "velodyne";
-    //     marker.ns = "spheres";
-    //     marker.id = i;
-    //     marker.action = visualization_msgs::msg::Marker::DELETE;
-    //     marker_array_msg->markers.push_back(marker);
-    // }
     return marker_array_msg;
 }
 
