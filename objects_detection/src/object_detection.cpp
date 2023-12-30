@@ -655,8 +655,7 @@ std::list<ObjectDetection::EllipsoidInfo> ObjectDetection::classificate(
                      info.center.y < 0) {
                 info.class_name = "0.7m_height_support";
             }
-        } 
-        else {
+        } else {
             info.class_name = "unknown";
         }
     }

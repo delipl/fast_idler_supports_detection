@@ -5,7 +5,7 @@
 #include <pcl/visualization/cloud_viewer.h>
 #include <iostream>
 #include <vector>
-int main(int argc, char const *argv[]){
+int main(int argc, char const *argv[]) {
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
     if (pcl::io::loadPCDFile<pcl::PointXYZ>("ism_test_converoy8.pcd", *cloud) == -1) {
         std::cout << "Cloud reading failed." << std::endl;

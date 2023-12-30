@@ -15,7 +15,7 @@ int load_test_cloud(CloudPtr cloud, const char* file_name = "test_cloud.pcd") {
     auto path = path_to_pcds + std::string(file_name);
     return pcl::io::loadPCDFile<Point>(path, *cloud);
 }
-template<typename T>
+template <typename T>
 void save_cloud(const std::string& name, std::shared_ptr<pcl::PointCloud<T>> cloud) {
     pcl::PCDWriter writer;
     auto path = path_to_pcds + std::string(name);
@@ -73,7 +73,7 @@ TEST(ObjectDetectionTest, ToCharts) {
     ClusterExtraction cluster;
     cluster.euclidean_tolerance = 0.4;
     cluster.euclidean_min_size = 20;
-    cluster.euclidean_max_size =  500;
+    cluster.euclidean_max_size = 500;
     CloudIPtrs clustered_legs = cluster.euclidean(merged_density_cloud);
 
     CloudIPtr merged_legs(new CloudI);

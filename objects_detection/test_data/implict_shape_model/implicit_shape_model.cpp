@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
     double s = std::stod(argv[8]);
 
     double radius = model->sigmas_[testing_class] * r;
-    double sigma = model->sigmas_[testing_class]*s;
+    double sigma = model->sigmas_[testing_class] * s;
 
     std::vector<pcl::ISMPeak, Eigen::aligned_allocator<pcl::ISMPeak> > strongest_peaks;
     vote_list->findStrongestPeaks(strongest_peaks, testing_class, radius, sigma);
@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
     point.b = 0;
     pcl::visualization::PCLVisualizer viewer("ISM BOXES");
     std::size_t i_vote;
-    for ( i_vote = 0; i_vote < strongest_peaks.size(); i_vote++) {
+    for (i_vote = 0; i_vote < strongest_peaks.size(); i_vote++) {
         point.x = strongest_peaks[i_vote].x;
         point.y = strongest_peaks[i_vote].y;
         point.z = strongest_peaks[i_vote].z;
@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
     colored_cloud->height += strongest_peaks.size();
 
     viewer.addPointCloud(colored_cloud);
-    
+
     while (!viewer.wasStopped()) {
         viewer.spin();
     }

@@ -9,7 +9,6 @@
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/visualization/pcl_visualizer.h>
 
-
 typedef pcl::PointXYZ PointT;
 
 int main(int argc, char *argv[]) {
@@ -114,9 +113,8 @@ int main(int argc, char *argv[]) {
     pcl::visualization::PCLVisualizer viewer("Correspondence Grouping");
 
     viewer.addPointCloud(cloud_cylinder, "cylinder");
-    
-    // viewer.addPointCloud(cloud, "cloud");
 
+    // viewer.addPointCloud(cloud, "cloud");
 
     while (!viewer.wasStopped()) {
         viewer.spin();

@@ -41,9 +41,7 @@ def show_2D_YZ_histogram(cloud, resolution=0.1, width=2.0, height=2.0):
         densities += column
     densities = np.array(densities)
 
-    plt.hist(
-        densities, bins=np.arange(min(densities), max(densities) + 1, 1), align="left"
-    )
+    plt.hist(densities, bins=np.arange(min(densities), max(densities) + 1, 1), align="left")
 
     plt.xticks(np.arange(min(densities), max(densities) + 1, 11))
 
@@ -90,9 +88,7 @@ def show_2D_XY_histogram(cloud, resolution=0.1, width=2.0, height=2.0):
         densities += column
     densities = np.array(densities)
 
-    plt.hist(
-        densities, bins=np.arange(min(densities), max(densities) + 1, 1), align="left"
-    )
+    plt.hist(densities, bins=np.arange(min(densities), max(densities) + 1, 1), align="left")
     plt.xticks(np.arange(min(densities), max(densities) + 1, 11))
 
     return histogram_image

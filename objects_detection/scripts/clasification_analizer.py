@@ -113,9 +113,7 @@ after_normalization_times = normalization_durations
 after_density_segmentation_times = np.array(normalization_durations) + np.array(
     density_segmentation_durations
 )
-after_clusterization_times = after_density_segmentation_times + np.array(
-    clusterization_durations
-)
+after_clusterization_times = after_density_segmentation_times + np.array(clusterization_durations)
 after_estimation_times = after_clusterization_times + np.array(estimation_durations)
 after_classification_times = after_estimation_times + np.array(classification_durations)
 width = 0.101
@@ -125,7 +123,7 @@ clusterization_durations = np.array(clusterization_durations)
 classification_durations = np.array(classification_durations)
 estimation_durations = np.array(estimation_durations)
 processing_durations = np.array(processing_durations)
-bar_timestamps =np.array(timestamps_ellips) + width / 2
+bar_timestamps = np.array(timestamps_ellips) + width / 2
 
 plt.bar(
     bar_timestamps,

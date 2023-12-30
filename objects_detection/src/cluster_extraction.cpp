@@ -1,7 +1,7 @@
 #include <objects_detection/cluster_extraction.hpp>
 
 CloudIPtrs ClusterExtraction::euclidean(CloudPtr cloud, double tolerance, std::size_t min_size,
-                                                    std::size_t max_size) const {
+                                        std::size_t max_size) const {
     CloudPtr cloud_filtered(cloud);
     pcl::search::KdTree<Point>::Ptr tree(new pcl::search::KdTree<Point>);
     tree->setInputCloud(cloud);
