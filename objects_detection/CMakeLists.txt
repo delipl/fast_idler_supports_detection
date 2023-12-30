@@ -150,6 +150,7 @@ install(PROGRAMS
   scripts/plot_on_surface.py
   scripts/isometic.py
   scripts/point_cloud_cli.py
+  scripts/utils.py
   DESTINATION lib/${PROJECT_NAME}/
 )
 
