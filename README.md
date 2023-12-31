@@ -7,18 +7,18 @@ ros2 run objects_detection object_detection --ros-args -p general.filename:=seco
 
 Analyze the output yaml file:
 ```bash
-ros2 run objects_detection clasification_analizer.py data/second_part_with_etaps.yaml 
+ros2 run objects_detection clasification_analizer.py data/second_part_with_etaps.yaml
 ```
 or
 ```bash
-python objects_detection/scripts/clasification_analizer.py data/second_part_with_etaps.yaml 
+python objects_detection/scripts/clasification_analizer.py data/second_part_with_etaps.yaml
 ```
 
 Make histograms and isometric view:
 ```bash
-ros2 run objects_detection point_cloud_cli.py -i --his XY YZ -f objects_detection/test_data/density_filtered_xy_5.pcd
+ros2 run objects_detection point_cloud_cli.py -i --his XY YZ -f objects_detection/test_data/tunneled_5.pcd
 ```
 or
 ```bash
-python objects_detection/scripts/point_cloud_cli.py -i --his XY YZ -f objects_detection/test_data/density_filtered_xy_5.pcd
+python objects_detection/scripts/point_cloud_cli.py -i --his XY YZ -f objects_detection/test_data/tunneled_5.pcd
 ```

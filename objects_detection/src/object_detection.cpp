@@ -386,47 +386,6 @@ Histogram ObjectDetection::remove_low_density_columns(const Histogram& histogram
     return clustered_histogram;
 }
 
-MarkersPtr ObjectDetection::make_markers_from_pointclouds(const CloudIPtrs& clustered_clouds) {
-    auto marker_array_msg = std::make_shared<visualization_msgs::msg::MarkerArray>();
-    std::size_t count_ = 0;
-    for (const auto& leg : clustered_clouds) {
-        visualization_msgs::msg::Marker marker;
-        marker.header.frame_id = "velodyne";
-        marker.ns = "cylinders";
-        marker.id = count_;
-        // marker.type = visualization_msgs::msg::Marker::CYLINDER;
-        marker.type = visualization_msgs::msg::Marker::MESH_RESOURCE;
-        marker.action = visualization_msgs::msg::Marker::ADD;
-        marker.mesh_resource = "package://objects_detection/test_data/leg.dae";
-        const auto center = get_center_of_model(leg);
-        marker.pose.position.x = center.x;
-        marker.pose.position.y = center.y;
-        marker.pose.position.z = center.z;
-        // Zorientować w zależności po której stronie jest
-        marker.pose.orientation.w = center.y > 0 ? 1 : 0;
-        marker.pose.orientation.z = center.y > 0 ? 0 : 1;
-        marker.scale.x = 1.0;
-        marker.scale.y = 1.0;
-        marker.scale.z = 1.0;  // Height of the cylinder
-        marker.color.a = 1.0;  // Alpha
-        marker.color.r = 0.0;  // Red
-        marker.color.g = 0.0;  // Green
-        marker.color.b = 1.0;  // Blue
-        marker.lifetime = rclcpp::Duration(0, 2000);
-        count_++;
-        marker_array_msg->markers.push_back(marker);
-    }
-    for (std::size_t i = clustered_clouds.size(); i < max_detected_legs; ++i) {
-        visualization_msgs::msg::Marker marker;
-        marker.header.frame_id = "velodyne";
-        marker.ns = "cylinders";
-        marker.id = i;
-        marker.action = visualization_msgs::msg::Marker::DELETE;
-        marker_array_msg->markers.push_back(marker);
-    }
-    return marker_array_msg;
-}
-
 CloudPtr ObjectDetection::merge_clouds(CloudPtrs clouds, double eps) {
     CloudPtr new_cloud(new Cloud);
     for (const auto& cloud : clouds) {
@@ -480,16 +439,6 @@ BoundingBoxArrayPtr ObjectDetection::make_bounding_boxes_from_pointclouds(const 
     return bounding_boxes;
 }
 
-Histogram ObjectDetection::multiply_histogram_by_exp(const Histogram& histogram, double a) {
-    Histogram multipied_histogram(histogram);
-    for (auto i = 0u; i < multipied_histogram.size(); ++i) {
-        for (auto j = 0u; j < multipied_histogram[i].size(); ++j) {
-            multipied_histogram[i][j] *= std::exp(a * i / multipied_histogram.size());
-        }
-    }
-    return multipied_histogram;
-}
-
 CloudPtr ObjectDetection::remove_far_points_from_ros2bag_converter_bug(CloudPtr cloud, double max_distance) {
     auto new_cloud = CloudPtr(new Cloud);
     for (const auto& point : cloud->points) {
@@ -513,29 +462,6 @@ CloudPtr ObjectDetection::remove_right_points(CloudPtr cloud) {
     new_cloud->height = cloud->points.size();
     new_cloud->width = 1;
     return new_cloud;
-}
-
-Point ObjectDetection::get_center_of_model(CloudIPtr cloud) {
-    Point center{0.0, 0.0, 0.0};
-    const double& model_height = 0.3;
-    const double& model_y_highest_point = 0.08;
-    Point highest_point{0, 0, -std::numeric_limits<float>::max()};
-    for (const auto& point : cloud->points) {
-        center.x += point.x;
-        center.y += point.y;
-        if (highest_point.z < point.z) {
-            highest_point.x = point.x;
-            highest_point.y = point.y;
-            highest_point.z = point.z;
-        }
-    }
-    const auto& size = cloud->points.size();
-    center.x /= size;
-    center.y = model_y_highest_point;
-    center.y *= highest_point.y > 0 ? 1 : -1;
-    center.y += highest_point.y;
-    center.z = highest_point.z - model_height / 2;
-    return center;
 }
 
 CloudPtr ObjectDetection::get_points_from_bounding_boxes(CloudPtr cloud, BoundingBoxArrayPtr boxes) {
@@ -628,7 +554,7 @@ ObjectDetection::EllipsoidInfo ObjectDetection::get_ellipsoid_and_center(CloudIP
     center.x = min_coords.x + ellipsoid.radius_x;
     center.y = min_coords.y + ellipsoid.radius_y;
     center.z = min_coords.z + ellipsoid.radius_z;
-    // RCLCPP_INFO_STREAM(get_logger(), "Ellipsoid radiuses: " << ellipsoid << "\n ellipsoid center: \n" << center);
+    RCLCPP_INFO_STREAM(get_logger(), "Ellipsoid radiuses: " << ellipsoid << "\n ellipsoid center: \n" << center);
 
     return {ellipsoid, center, "unknown"};
 }
@@ -639,15 +565,17 @@ std::list<ObjectDetection::EllipsoidInfo> ObjectDetection::classificate(
     for (auto& info : classified_ellipsoids_infos) {
         const double& model_x_size = 0.2;  // z modelu
         const double& model_y_size = 0.4;
-        const double& model_z_size = 0.58;
-        const double& model2_z_size = 0.68;
+        // 0.05 is a ground radius filter
+        const double& model_z_size = 0.6 - 0.05;
+        const double& model2_z_size = 0.7 - 0.05;
         RCL_UNUSED(model_x_size);
-        RCL_UNUSED(model_y_size);
 
         auto z_min = info.center.z - info.radiuses.radius_z;
         // From ground +- 10cm (plane segmentation) to full 0.6m size
-        if (info.radiuses.radius_x < model_x_size and std::abs(z_min) < 0.1) {
-            if ((std::abs(2 * info.radiuses.radius_z - model_z_size) < 0.1 * model_z_size) && info.center.y > 0) {
+        // RCLCPP_INFO_STREAM()
+        if (2*info.radiuses.radius_y > 0.1) {
+            if (  // Gdy zaczyna się od ziemi
+                (std::abs(2 * info.radiuses.radius_z - model_z_size) < 0.1 * model_z_size) && info.center.y > 0) {
                 info.class_name = "0.6m_height_support";
             }
             // From ground to full 0.7m size

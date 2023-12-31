@@ -121,20 +121,16 @@ class ObjectDetection : public rclcpp::Node {
     CloudPtr remove_right_points(CloudPtr cloud);
     CloudPtr align_to_normal(CloudPtr cloud, const Eigen::Vector3d &normal, double ground_height);
 
-    Point get_center_of_model(CloudIPtr cloud);
     CloudPtr get_points_from_bounding_boxes(CloudPtr cloud, BoundingBoxArrayPtr boxes);
-    // CloudPtr plane_filter(CloudPtr cloud);
 
     Histogram create_histogram(CloudPtr cloud, double resolution, double width, double height);
     Histogram remove_low_density_columns(const Histogram &histogram, std::size_t threshold);
     Histogram threshold_histogram(const Histogram &histogram, std::size_t min, std::size_t max);
     Histogram segment_local_peeks(const Histogram &histogram, std::size_t slope, std::size_t range = 1);
-    Histogram multiply_histogram_by_exp(const Histogram &histogram, double a);
 
     void save_histogram_to_file(const Histogram &histogram, const std::string &file_name);
     sensor_msgs::msg::Image create_image_from_histogram(const Histogram &histogram);
 
-    MarkersPtr make_markers_from_pointclouds(const CloudIPtrs &clustered_clouds);
     MarkersPtr make_markers_from_ellipsoids_infos(const std::list<EllipsoidInfo> &ellipsoids_infos);
     BoundingBoxArrayPtr make_bounding_boxes_from_pointclouds(const CloudIPtrs &clustered_clouds,
                                                              const std::string &frame_name);

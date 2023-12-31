@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import yaml
 import sys
 import numpy as np
@@ -23,6 +24,10 @@ clusterization_durations = []
 classification_durations = []
 estimation_durations = []
 processing_durations = []
+
+class_06_size=0
+class_07_size=0
+class_unknown_size=0
 # Dostęp do poszczególnych pól
 for frame in data:
     timestamps_ellips.append(frame["time"] - data[0]["time"])
@@ -42,19 +47,22 @@ for frame in data:
             classes.append(ellipsoid["class"])
             if ellipsoid["class"] == "0.6m_height_support":
                 classes_ids.append("green")
+                class_06_size += 1
                 classified_legs_counts_elipoids[-1] += 1
             elif ellipsoid["class"] == "0.7m_height_support":
-                classes_ids.append("green")
+                classes_ids.append("blue")
+                class_07_size+=1
                 classified_legs_counts_elipoids[-1] += 1
             else:
-                classes_ids.append("red")
+                class_unknown_size+=1
+                classes_ids.append("gray")
                 unclassified_legs_counts_elipoids[-1] += 1
 
     except KeyError:
         continue
 
 # Tworzenie subplotów
-fig = plt.figure(figsize=plt.figaspect(0.5))
+fig = plt.figure(sys.argv[1], figsize=plt.figaspect(0.5))
 gs = fig.add_gridspec(3, 2)
 # fig, axs = plt.subplots(2, 2, figsize=(15, 10))
 ax = fig.add_subplot(gs[:2, 0], projection="3d")
@@ -64,6 +72,7 @@ ax.scatter(
     [pos["y"] for pos in positions_ellips],
     [pos["z"] for pos in positions_ellips],
     marker=".",
+    alpha=0.2,
     c=classes_ids,
 )
 
@@ -77,6 +86,16 @@ ax.zaxis.pane.fill = False
 ax.set_xlim([0.0, 5.0])
 ax.set_ylim([-2, 2])
 ax.set_zlim([0.0, 1.2])
+
+
+red_patch = mpatches.Patch(color='gray', label=f'unclassified [{class_unknown_size}]')
+green_patch = mpatches.Patch(color='green', label=f'classified 0.6m support [{class_06_size}]')
+yellow_patch = mpatches.Patch(color='blue', label=f'classified 0.7m support [{class_07_size}]')
+ax.legend(handles=[red_patch, green_patch, yellow_patch])
+
+
+# plt.legend()
+
 
 ax.view_init(azim=-155, elev=20)
 ax.set_title("Detected and classified supports")
@@ -125,14 +144,6 @@ estimation_durations = np.array(estimation_durations)
 processing_durations = np.array(processing_durations)
 bar_timestamps = np.array(timestamps_ellips) + width / 2
 
-plt.bar(
-    bar_timestamps,
-    processing_durations,
-    width=width,
-    color="gray",
-    label="processing",
-    align="edge",
-)
 plt.bar(
     bar_timestamps,
     normalization_durations,
@@ -209,7 +220,7 @@ ax.hist(
     color="red",
 )
 ax.set_title("Number of unclassified supports in measurements")
-ax.set_xlabel("number of classified supports")
+ax.set_xlabel("number of unclassified supports")
 ax.set_ylabel("number of measurements")
 ax.grid(True)
 
