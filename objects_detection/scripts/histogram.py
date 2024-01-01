@@ -2,11 +2,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def show_2D_YZ_histogram(cloud, resolution=0.1, width=2.0, height=2.0):
+def show_2D_YZ_histogram(cloud, resolution=0.1):
     histogram_image = []
-
+    x = cloud[:, 0]
+    y = cloud[:, 1]
+    z = cloud[:, 2]
+    # print(f"min x {min(x)}, max x {max(x) max y }")
+    width = 2*max(y)
+    height = max(z)
     image_width = int(width / resolution)
     image_height = int(height / resolution)
+    max_sector = 0
 
     for _ in range(image_height):
         column = [0] * image_width
@@ -20,14 +26,17 @@ def show_2D_YZ_histogram(cloud, resolution=0.1, width=2.0, height=2.0):
         if image_width_pos >= image_width or image_height_pos >= image_height:
             continue
         histogram_image[image_height_pos][image_width_pos] += 1
+        max_sector = max([histogram_image[image_height_pos][image_width_pos], max_sector])
 
     plt.figure("2D histogram YZ")
     plt.title("2D histogram YZ")
     plt.xlabel("Y", fontsize=8)
     plt.ylabel("Z", fontsize=8)
-    extent_values = [-2, 2, 0, 1.5]
+    extent_values = [min(y), max(y), min(z), max(z)]
+    print(f"min(y): {min(y)}, max(y): {max(y)}, min(z): {min(z)}, max(z): {max(z)}")
+    
     img = plt.imshow(histogram_image, extent=extent_values)
-    img.set_clim(0, 270)
+    img.set_clim(0, max_sector)
     plt.colorbar()
 
     plt.figure("Histogram YZ")
@@ -48,11 +57,16 @@ def show_2D_YZ_histogram(cloud, resolution=0.1, width=2.0, height=2.0):
     return histogram_image
 
 
-def show_2D_XY_histogram(cloud, resolution=0.1, width=2.0, height=2.0):
+def show_2D_XY_histogram(cloud, resolution=0.1):
     histogram_image = []
+    x = cloud[:, 0]
+    y = cloud[:, 1]
+    width = 2*max(y)
+    height = max(x)
+    max_sector = 0
 
-    image_width = int(height / resolution)
-    image_height = int(width / resolution)
+    image_width = int(width / resolution)
+    image_height = int(height / resolution)
 
     for _ in range(image_height):
         column = [0] * image_width
@@ -66,14 +80,15 @@ def show_2D_XY_histogram(cloud, resolution=0.1, width=2.0, height=2.0):
         if image_width_pos >= image_width or image_height_pos >= image_height:
             continue
         histogram_image[image_height_pos][image_width_pos] += 1
+        max_sector = max([histogram_image[image_height_pos][image_width_pos], max_sector])
 
     plt.figure("2D histogram XY")
     plt.title("2D histogram XY")
     plt.xlabel("Y", fontsize=8)
     plt.ylabel("X", fontsize=8)
-    extent_values = [-2, 2, 0, 5]
+    extent_values = [min(y), max(y), min(x), max(x)]
     img = plt.imshow(histogram_image, extent=extent_values)
-    img.set_clim(0, 80)
+    img.set_clim(0, max_sector)
     plt.colorbar()
 
     plt.figure("Histogram XY")

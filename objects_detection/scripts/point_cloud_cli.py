@@ -86,9 +86,9 @@ if args.isometric:
     isometic.plot_3D("Chmura punktów w przestrzeni 3D", cloud)
 
 if "XY" in args.histogram:
-    histogram.show_2D_XY_histogram(cloud, 0.1, x_max - x_min, y_max - y_min)
+    histogram.show_2D_XY_histogram(cloud, 0.1)
 if "YZ" in args.histogram:
-    histogram.show_2D_YZ_histogram(cloud, 0.1, y_max - y_min, z_max - z_min)
+    histogram.show_2D_YZ_histogram(cloud, 0.1)
 while True:
     plt.pause(1000)
     time.sleep(1)
