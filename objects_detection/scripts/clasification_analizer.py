@@ -4,6 +4,7 @@ import matplotlib.patches as mpatches
 import yaml
 import sys
 import numpy as np
+from tabulate import tabulate
 
 with open(sys.argv[1], "r") as file:
     data = yaml.safe_load(file)
@@ -63,7 +64,12 @@ for frame in data:
 
 # Tworzenie subplotów
 fig = plt.figure(sys.argv[1], figsize=plt.figaspect(0.5))
-gs = fig.add_gridspec(3, 2)
+widths = [2.5, 1.8]
+heights = [1.5, 1.5, 1.0]
+gs = fig.add_gridspec(ncols=2, nrows=3, width_ratios=widths,
+                          height_ratios=heights)
+
+# gs = fig.add_gridspec(3, 3)
 # fig, axs = plt.subplots(2, 2, figsize=(15, 10))
 ax = fig.add_subplot(gs[:2, 0], projection="3d")
 # Rysowanie wykresu 3D
@@ -143,13 +149,12 @@ classification_durations = np.array(classification_durations)
 estimation_durations = np.array(estimation_durations)
 processing_durations = np.array(processing_durations)
 bar_timestamps = np.array(timestamps_ellips) + width / 2
-
 plt.bar(
     bar_timestamps,
     normalization_durations,
     width=width,
     color="#EAE0C8",
-    label="normalization",
+    label="Cropping and Alignment",
     align="edge",
 )
 plt.bar(
@@ -157,7 +162,7 @@ plt.bar(
     density_segmentation_durations,
     width=width,
     color="#FFB6C1",
-    label="density segmentation",
+    label="Density Segmentation",
     bottom=after_normalization_times,
     align="edge",
 )
@@ -166,17 +171,8 @@ plt.bar(
     clusterization_durations,
     width=width,
     color="#ADD8E6",
-    label="clusterization",
+    label="Clustering",
     bottom=after_density_segmentation_times,
-    align="edge",
-)
-plt.bar(
-    bar_timestamps,
-    estimation_durations,
-    width=width,
-    color="#D8BFD8",
-    label="estimation",
-    bottom=after_clusterization_times,
     align="edge",
 )
 plt.bar(
@@ -184,12 +180,22 @@ plt.bar(
     classification_durations,
     width=width,
     color="#DC143C",
-    label="classification",
+    label="Object Detection",
     bottom=after_estimation_times,
+    align="edge",
+)
+plt.bar(
+    bar_timestamps,
+    estimation_durations,
+    width=width,
+    color="#D8BFD8",
+    label="Position Estimation",
+    bottom=after_clusterization_times,
     align="edge",
 )
 
 # Dodanie legendy
+# plt.legend(bbox_to_anchor=(0.5, 1.05))
 plt.legend()
 
 
@@ -223,9 +229,37 @@ ax.set_title("Number of unclassified supports in measurements")
 ax.set_xlabel("number of unclassified supports")
 ax.set_ylabel("number of measurements")
 ax.grid(True)
+plt.tight_layout()
 
+fig = plt.figure(f"Time tables {sys.argv[1]}")
+ax = fig.add_subplot()
+fig.patch.set_visible(False)
+ax.axis('off')
+ax.axis('tight')
+table_data = [['process step', 'min [ms]', 'max [ms]', 'mean [ms]', 'std dev [ms]']]
+step_names = ['Cropping and Alignment', 'Density Segmentation', 'Clustering', 'Object Detection', 'Position Estimation', 'Whole process']
+datas = [normalization_durations, density_segmentation_durations, clusterization_durations, classification_durations, estimation_durations, processing_durations]
+
+for i in range(len(step_names)):
+    min_value = round(np.min(datas[i]) * 10e3, 5) 
+    max_value = round(np.max(datas[i]) * 10e3, 5)
+    mean_value = round(np.mean(datas[i]) * 10e3, 5)
+    std_deviation = round(np.std(datas[i]) * 10e3, 5)
+    table_data.append([step_names[i], min_value, max_value, mean_value, std_deviation])
+    
+table = ax.table(cellText=table_data, loc='upper right', cellLoc='center', colLabels=None)
+
+table.auto_set_font_size(False)
+table.set_fontsize(10)
+latex_table = tabulate(table_data, headers=["Statystyka", "Wartość"], tablefmt="latex")
+
+# Zapisywanie tabeli do pliku
+with open(f"{sys.argv[1]}_time_table.tex", "w") as file:
+    file.write(latex_table)
+# table.scale(1, 1.5)
 # # Dostosowanie odstępów między subplotami
 plt.tight_layout()
 
 # # Wyświetlenie wykresów
 plt.show()
+

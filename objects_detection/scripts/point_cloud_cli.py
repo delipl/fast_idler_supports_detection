@@ -83,7 +83,7 @@ if "YZ" in args.surface:
     plot_on_surface.plot_on_yz("Punkty na płaszczyźnie YZ", cloud)
 
 if args.isometric:
-    isometic.plot_3D("Chmura punktów w przestrzeni 3D", cloud)
+    isometic.plot_3D("Point cloud", cloud)
 
 if "XY" in args.histogram:
     histogram.show_2D_XY_histogram(cloud, 0.1)
