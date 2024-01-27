@@ -48,3 +48,5 @@ CloudPtr remove_intensivity_from_cloud(CloudIPtr cloud);
 CloudPtr translate(CloudPtr cloud, double x, double y, double z);
 
 bool is_point_inside_box(const Point &point, const BoundingBox &box);
+
+CloudIPtr merge_clouds(const CloudIPtrs &clouds);

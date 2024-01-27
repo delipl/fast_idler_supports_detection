@@ -67,3 +67,8 @@ Figure 4.15:
 ```
 
 ```
+
+Table processing time:
+```
+ros2 run objects_detection clasification_analizer.py data/first_part_with_etaps.yaml 
+```

@@ -2,13 +2,13 @@
 #include <gtest/gtest.h>
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
-
+#include <pcl/features/normal_3d.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 
 #include <objects_detection/object_detection.hpp>
 #include <objects_detection/utils.hpp>
-
+#include <pcl/visualization/pcl_visualizer.h>
 std::string path_to_pcds;
 
 int load_test_cloud(CloudPtr cloud, const char* file_name = "test_cloud.pcd") {
@@ -65,10 +65,26 @@ TEST(ObjectDetectionTest, ToCharts) {
     EXPECT_THAT(density_filtered_xy->points.size(), testing::Le(tunneled_cloud->points.size()));
     save_cloud("density_filtered_xy_5.pcd", density_filtered_xy);
 
-    auto merged_density_cloud{object_detection.merge_clouds({density_filtered_yz, density_filtered_xy}, 0.0001)};
+    auto merged_density_cloud{object_detection.merge_clouds_and_remove_simillar_points({density_filtered_yz, density_filtered_xy}, 0.0001)};
     EXPECT_THAT(density_filtered_xy->points.size(), testing::Le(merged_density_cloud->points.size()));
     EXPECT_THAT(density_filtered_yz->points.size(), testing::Le(merged_density_cloud->points.size()));
     save_cloud("merged_density_5.pcd", merged_density_cloud);
+    pcl::NormalEstimation<Point, pcl::Normal> ne;
+    ne.setInputCloud (merged_density_cloud);
+    pcl::search::KdTree<Point>::Ptr tree (new pcl::search::KdTree<Point> ());
+    ne.setSearchMethod (tree);
+    pcl::PointCloud<pcl::Normal>::Ptr cloud_normals (new pcl::PointCloud<pcl::Normal>);
+    ne.setRadiusSearch (0.1);
+    ne.compute (*cloud_normals);
+    save_cloud("merged_legs_normals.pcd", cloud_normals);
+    //     // Inicjalizuj wizualizator PCL
+    pcl::visualization::PCLVisualizer viewer("PCL Viewer");
+    viewer.setBackgroundColor (0.0, 0.0, 0.5);
+    viewer.addPointCloudNormals<pcl::PointXYZ,pcl::Normal>(merged_density_cloud, cloud_normals);
+    
+    while (!viewer.wasStopped()) {
+        viewer.spin();
+    }
 
     ClusterExtraction cluster;
     cluster.euclidean_tolerance = 0.4;

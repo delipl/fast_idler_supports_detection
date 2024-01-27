@@ -26,6 +26,12 @@ classification_durations = []
 estimation_durations = []
 processing_durations = []
 
+
+point_original_sizes = []
+point_5m_filter_sizes = [] 
+point_ground_filter_sizes = []
+point_roi_sizes = []
+
 class_06_size=0
 class_07_size=0
 class_unknown_size=0
@@ -34,12 +40,17 @@ for frame in data:
     timestamps_ellips.append(frame["time"] - data[0]["time"])
     classified_legs_counts_elipoids.append(0)
     unclassified_legs_counts_elipoids.append(0)
-    normalization_durations.append(frame["normalization_duration"])
-    density_segmentation_durations.append(frame["density_segmentation_duration"])
-    clusterization_durations.append(frame["clusterization_duration"])
-    classification_durations.append(frame["classification_duration"])
-    estimation_durations.append(frame["estimation_duration"])
-    processing_durations.append(frame["processing_duration"])
+    normalization_durations.append(frame["durations"]["normalization"])
+    density_segmentation_durations.append(frame["durations"]["density_segmentation"])
+    clusterization_durations.append(frame["durations"]["clusterization"])
+    classification_durations.append(frame["durations"]["classification"])
+    estimation_durations.append(frame["durations"]["estimation"])
+    processing_durations.append(frame["durations"]["processing"])
+    
+    point_original_sizes.append(frame["filters_point_sizes"]["original"])
+    point_5m_filter_sizes.append(frame["filters_point_sizes"]["5m_filter"])
+    point_ground_filter_sizes.append(frame["filters_point_sizes"]["ground_filter"])
+    point_roi_sizes.append(frame["filters_point_sizes"]["roi"])
 
     try:
         for ellipsoid in frame["detected_ellipsoids"]:
@@ -63,7 +74,7 @@ for frame in data:
         continue
 
 # Tworzenie subplotów
-fig = plt.figure(sys.argv[1], figsize=plt.figaspect(0.5))
+fig = plt.figure(f"Detected and classified supports {sys.argv[1]}")
 widths = [2.5, 1.8]
 heights = [1.5, 1.5, 1.0]
 gs = fig.add_gridspec(ncols=2, nrows=3, width_ratios=widths,
@@ -71,7 +82,7 @@ gs = fig.add_gridspec(ncols=2, nrows=3, width_ratios=widths,
 
 # gs = fig.add_gridspec(3, 3)
 # fig, axs = plt.subplots(2, 2, figsize=(15, 10))
-ax = fig.add_subplot(gs[:2, 0], projection="3d")
+ax = fig.add_subplot(projection="3d")
 # Rysowanie wykresu 3D
 ax.scatter(
     [pos["x"] for pos in positions_ellips],
@@ -98,19 +109,19 @@ red_patch = mpatches.Patch(color='gray', label=f'unclassified [{class_unknown_si
 green_patch = mpatches.Patch(color='green', label=f'classified 0.6m support [{class_06_size}]')
 yellow_patch = mpatches.Patch(color='blue', label=f'classified 0.7m support [{class_07_size}]')
 ax.legend(handles=[red_patch, green_patch, yellow_patch])
+ax.set_title("Detected and classified supports")
 
 
 # plt.legend()
 
-
-ax.view_init(azim=-155, elev=20)
-ax.set_title("Detected and classified supports")
+fig = plt.figure(f"Classified supports {sys.argv[1]}")
+ax.view_init(azim=180, elev=50)
 # ax.set(title='Pozycje elipsoid', xlabel='X [m]', ylabel='Y [m]')
 ax.grid(True)
 
 
 # # Rysowanie wykresu liczby nóg
-ax = fig.add_subplot(gs[0, 1])
+ax = fig.add_subplot()
 ax.plot(
     timestamps_ellips,
     classified_legs_counts_elipoids,
@@ -133,7 +144,8 @@ ax.grid(True)
 
 
 # # Rysowanie wykresu długości callbacku od czasu
-ax = fig.add_subplot(gs[1, 1])
+fig = plt.figure(f"Durations {sys.argv[1]}")
+ax = fig.add_subplot()
 after_normalization_times = normalization_durations
 after_density_segmentation_times = np.array(normalization_durations) + np.array(
     density_segmentation_durations
@@ -205,7 +217,8 @@ ax.set_ylabel("processing time [s]")
 ax.grid(True)
 
 # # Rysowanie histogramu liczby nóg
-ax = fig.add_subplot(gs[2, 0])
+fig = plt.figure()
+ax = fig.add_subplot()
 ax.hist(
     classified_legs_counts_elipoids,
     bins=np.arange(0, max(classified_legs_counts_elipoids) + 2, 1),
@@ -231,8 +244,14 @@ ax.set_ylabel("number of measurements")
 ax.grid(True)
 plt.tight_layout()
 
-fig = plt.figure(f"Time tables {sys.argv[1]}")
+fig = plt.figure("Statistics")
 ax = fig.add_subplot()
+ax.axis('off')
+ax.axis('tight')
+plt.title(f"Time tables {sys.argv[1]}")
+gs = fig.add_gridspec(ncols=1, nrows=2)
+ax = fig.add_subplot(gs[0, 0])
+
 fig.patch.set_visible(False)
 ax.axis('off')
 ax.axis('tight')
@@ -258,7 +277,35 @@ with open(f"{sys.argv[1]}_time_table.tex", "w") as file:
     file.write(latex_table)
 # table.scale(1, 1.5)
 # # Dostosowanie odstępów między subplotami
-plt.tight_layout()
+# plt.tight_layout()
+fig = plt.figure("Statistics")
+ax = fig.add_subplot(gs[1, 0])
+plt.title(f"Counts tables {sys.argv[1]}")
+
+ax.axis('off')
+ax.axis('tight')
+table_data = [['filtration step', 'min', 'max', 'mean', 'std dev']]
+step_names = ['Original', '5m Filter', 'Ground Filter', 'ROI']
+datas = [point_original_sizes, point_5m_filter_sizes, point_ground_filter_sizes, point_roi_sizes]
+for i in range(len(step_names)):
+    min_value = np.min(datas[i])  
+    max_value = np.max(datas[i]) 
+    mean_value = int(np.mean(datas[i])) 
+    std_deviation = int(np.std(datas[i])) 
+    table_data.append([step_names[i], min_value, max_value, mean_value, std_deviation])
+    
+table = ax.table(cellText=table_data, loc='upper right', cellLoc='center', colLabels=None)
+
+table.auto_set_font_size(False)
+table.set_fontsize(10)
+latex_table = tabulate(table_data, headers=["Statystyka", "Wartość"], tablefmt="latex")
+
+# Zapisywanie tabeli do pliku
+with open(f"{sys.argv[1]}_counts_table.tex", "w") as file:
+    file.write(latex_table)
+# table.scale(1, 1.5)
+# # Dostosowanie odstępów między subplotami
+# plt.tight_layout()
 
 # # Wyświetlenie wykresów
 plt.show()

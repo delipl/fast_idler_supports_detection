@@ -56,7 +56,7 @@ class ObjectDetection : public rclcpp::Node {
     void get_parameters();
 
     std::string pointcloud_topic_name;
-
+    double ground_level_height;
     double tunnel_width;
     double tunnel_height;
     double tunnel_length;
@@ -92,12 +92,14 @@ class ObjectDetection : public rclcpp::Node {
     rclcpp::Publisher<rclcppCloud>::SharedPtr forward_hist_filtered_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr top_hist_filtered_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_pub_;
+    rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_conveyors_candidates_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_conveyor_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr only_legs_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr merged_density_clouds_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr plane_filter_pub_;
 
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr markers_pub_;
+    rclcpp::Publisher<vision_msgs::msg::BoundingBox3DArray>::SharedPtr conveyors_candidates_bounding_box_pub_;
     rclcpp::Publisher<vision_msgs::msg::BoundingBox3DArray>::SharedPtr bounding_box_pub_;
 
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr forward_density_histogram_pub_;
@@ -107,6 +109,7 @@ class ObjectDetection : public rclcpp::Node {
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr ground_density_clustered_histogram_pub_;
 
     ClusterExtraction clusteler;
+    ClusterExtraction conveyor_candidates_clusteler;
 
     CloudPtr remove_points_beyond_tunnel(CloudPtr cloud);
     CloudPtr filter_with_density_on_x_image(CloudPtr cloud, const Histogram &histogram, double resolution, double width,
@@ -114,7 +117,7 @@ class ObjectDetection : public rclcpp::Node {
     CloudPtr filter_with_density_on_z_image(CloudPtr cloud, const Histogram &histogram, double resolution, double width,
                                             double length);
     CloudPtr remove_far_points_from_ros2bag_converter_bug(CloudPtr cloud, double max_distance);
-    CloudPtr merge_clouds(CloudPtrs clouds, double eps);
+    CloudPtr merge_clouds_and_remove_simillar_points(CloudPtrs clouds, double eps);
     std::pair<CloudPtr, CloudPtr> filter_ground_and_get_normal_and_height(CloudPtr cloud, int sac_model, int iterations,
                                                                           double radius, Eigen::Vector3d &normal,
                                                                           double &ground_height, double eps = 0);
@@ -148,6 +151,11 @@ class ObjectDetection : public rclcpp::Node {
     int64_t clusterization_duration_count;
     int64_t classification_duration_count;
     int64_t estimation_duration_count;
+
+    std::size_t original_points_count;
+    std::size_t filter_further_than_5m_points_count;
+    std::size_t filter_ground_points_count;
+    std::size_t roi_points_count;
 };
 
 // Przeładowanie operatora << dla struktury Ellipsoid

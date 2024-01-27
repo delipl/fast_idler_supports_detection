@@ -73,3 +73,13 @@ bool is_point_inside_box(const Point &point, const BoundingBox &box) {
             point.y >= box.center.position.y - box.size.y / 2 && point.y <= box.center.position.y + box.size.y / 2 &&
             point.z >= box.center.position.z - box.size.z / 2 && point.z <= box.center.position.z + box.size.z / 2);
 }
+
+CloudIPtr merge_clouds(const CloudIPtrs &clouds) {
+    CloudIPtr merged_clouds(new CloudI);
+    for (const auto &cloud : clouds) {
+        if (cloud->size()) {
+            *merged_clouds += *cloud;
+        }
+    }
+    return merged_clouds;
+}
