@@ -64,7 +64,6 @@ void ObjectDetection::get_parameters() {
     tunnel_length = std::stod(get_parameter("general.tunnel.length").as_string());
     ground_level_height = std::stod(get_parameter("general.ground_level_height").as_string());
 
-
     forward_resolution = std::stod(get_parameter("general.forward.histogram.resolution").as_string());
     forward_histogram_min = std::stoi(get_parameter("general.forward.histogram.min").as_string());
     forward_histogram_max = std::stoi(get_parameter("general.forward.histogram.max").as_string());
@@ -76,9 +75,12 @@ void ObjectDetection::get_parameters() {
     ground_histogram_max = std::stoi(get_parameter("general.ground.histogram.max").as_string());
     ground_histogram_a = std::stoi(get_parameter("general.ground.histogram.a").as_string());
 
-    conveyor_candidates_clusteler.euclidean_tolerance = std::stod(get_parameter("conveyor_candidates_clusteler.euclidean.tolerance").as_string());
-    conveyor_candidates_clusteler.euclidean_max_size = std::stoi(get_parameter("conveyor_candidates_clusteler.euclidean.max_size").as_string());
-    conveyor_candidates_clusteler.euclidean_min_size = std::stoi(get_parameter("conveyor_candidates_clusteler.euclidean.min_size").as_string());
+    conveyor_candidates_clusteler.euclidean_tolerance =
+        std::stod(get_parameter("conveyor_candidates_clusteler.euclidean.tolerance").as_string());
+    conveyor_candidates_clusteler.euclidean_max_size =
+        std::stoi(get_parameter("conveyor_candidates_clusteler.euclidean.max_size").as_string());
+    conveyor_candidates_clusteler.euclidean_min_size =
+        std::stoi(get_parameter("conveyor_candidates_clusteler.euclidean.min_size").as_string());
 
     clusteler.euclidean_tolerance = std::stod(get_parameter("clusteler.euclidean.tolerance").as_string());
     clusteler.euclidean_max_size = std::stoi(get_parameter("clusteler.euclidean.max_size").as_string());
@@ -95,18 +97,24 @@ void ObjectDetection::create_rclcpp_instances() {
     top_hist_filtered_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/top_hist_filtered_pub_", 10);
     clustered_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered", 10);
     clustered_conveyor_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered_conveyor", 10);
-    clustered_conveyors_candidates_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered_conveyors_candidates", 10);
+    clustered_conveyors_candidates_pub_ =
+        create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered_conveyors_candidates", 10);
     merged_density_clouds_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/merged_density_clouds", 10);
     plane_filter_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/plane_filter", 10);
 
     only_legs_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/only_legs", 10);
     bounding_box_pub_ = create_publisher<vision_msgs::msg::BoundingBox3DArray>("inz/bounding_boxes", 10);
-    conveyors_candidates_bounding_box_pub_ = create_publisher<vision_msgs::msg::BoundingBox3DArray>("inz/conveyor_candidates_bounding_boxes", 10);
+    detection_3d_pub_ = create_publisher<vision_msgs::msg::Detection3DArray>("inz/detected_conveyors", 10);
+    conveyors_candidates_bounding_box_pub_ =
+        create_publisher<vision_msgs::msg::BoundingBox3DArray>("inz/conveyor_candidates_bounding_boxes", 10);
+
+    conveyors_bounding_box_pub_ =
+        create_publisher<vision_msgs::msg::BoundingBox3DArray>("inz/conveyor_bounding_boxes", 10);
     forward_density_histogram_pub_ = create_publisher<sensor_msgs::msg::Image>("inz/forward_desity_histogram", 10);
     forward_density_clustered_histogram_pub_ =
         create_publisher<sensor_msgs::msg::Image>("inz/forward_desity_clustered_histogram", 10);
 
-    ground_density_histogram_pub_ = create_publisher<sensor_msgs::msg::Image>("inz/ground_desity_histogram", 10);`
+    ground_density_histogram_pub_ = create_publisher<sensor_msgs::msg::Image>("inz/ground_desity_histogram", 10);
     ground_density_clustered_histogram_pub_ =
         create_publisher<sensor_msgs::msg::Image>("inz/ground_desity_clustered_histogram", 10);
     ground_density_histogram_multiplied_pub_ =
@@ -141,26 +149,59 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
 
     CloudPtr cloud_for_ground_detection(new Cloud);
     for (const auto& point : cloud->points) {
-        if (std::abs(point.y) < tunnel_width/2.0) {
+        if (std::abs(point.y) < tunnel_width / 2.0) {
             cloud_for_ground_detection->push_back(point);
         }
     }
-    auto filtered_ground_clouds = filter_ground_and_get_normal_and_height(
-        cloud_for_ground_detection, pcl::SACMODEL_PLANE, 800, ground_level_height, std::ref(normal_vec), std::ref(ground_height));
+    auto filtered_ground_clouds =
+        filter_ground_and_get_normal_and_height(cloud_for_ground_detection, pcl::SACMODEL_PLANE, 800,
+                                                ground_level_height, std::ref(normal_vec), std::ref(ground_height));
     auto ground = filtered_ground_clouds.first;
     auto without_ground = filtered_ground_clouds.second;
     filter_ground_points_count = without_ground->size();
 
     auto aligned_cloud = align_to_normal(without_ground, normal_vec, ground_height);
     CloudIPtrs clustered_conveyors_candidates = conveyor_candidates_clusteler.euclidean(aligned_cloud);
+    if (not clustered_conveyors_candidates.size()) {
+        RCLCPP_WARN(get_logger(), "Cannot find any conveyor candidate! Skipping pointcloud");
+        return;
+    }
+
     auto merged_conveyors_candidates = merge_clouds(clustered_conveyors_candidates);
-    clustered_conveyors_candidates_pub_->publish(convert_cloudi_ptr_to_point_cloud2(merged_conveyors_candidates, frame, this));
-    auto conveyors_candidates_bounding_boxes_msg = make_bounding_boxes_from_pointclouds(clustered_conveyors_candidates, frame);
-    conveyors_candidates_bounding_box_pub_->publish(*conveyors_candidates_bounding_boxes_msg);
+    clustered_conveyors_candidates_pub_->publish(
+        convert_cloudi_ptr_to_point_cloud2(merged_conveyors_candidates, frame, this));
+    auto conveyors_candidates_bounding_boxes_msg =
+        make_bounding_boxes_from_pointclouds(clustered_conveyors_candidates, frame);
 
+    // auto compare_height_and_z_position = [](auto const& box) {
+    //     const double conveyor_position_z = 0.38;
+    //     const double conveyor_height = 0.60;
+    //     return not (std::abs(box.center.position.z - conveyor_position_z) < 0.1 * conveyor_position_z and
+    //            std::abs(box.size.z - conveyor_height) < 0.1 * conveyor_height);
+    // };
 
+    // for (const auto& box : conveyors_candidates_bounding_boxes_msg->boxes) {
+    //     RCLCPP_INFO_STREAM(get_logger(), "center: " << box.center.position.x << ", " << box.center.position.y << ", "
+    //                                                 << box.center.position.z << ", "
+    //                                                 << "\tsize: " << box.size.x << ", " << box.size.y << ", "
+    //                                                 << box.size.z << ";");
+    // }
+    // conveyors_candidates_bounding_box_pub_->publish(*conveyors_candidates_bounding_boxes_msg);
+    // auto conveyors_bounding_boxes_msg(conveyors_candidates_bounding_boxes_msg);
+    // conveyors_bounding_boxes_msg->boxes.erase(
+    //     std::remove_if(conveyors_bounding_boxes_msg->boxes.begin(), conveyors_bounding_boxes_msg->boxes.end(),
+    //                    compare_height_and_z_position),
+    //     conveyors_bounding_boxes_msg->boxes.end());
 
+    // if (not conveyors_bounding_boxes_msg->boxes.size()) {
+    //     RCLCPP_WARN(get_logger(), "Cannot find any conveyor! Skipping pointcloud");
+    //     return;
+    // }
+    // conveyors_bounding_box_pub_->publish(*conveyors_bounding_boxes_msg);
 
+    auto conveyors_candidates_detection_3d_msg =
+        make_detection_3d_from_pointclouds(clustered_conveyors_candidates, frame);
+    detection_3d_pub_->publish(*conveyors_candidates_detection_3d_msg);
 
     auto tunneled_cloud = remove_points_beyond_tunnel(aligned_cloud);
     roi_points_count = tunneled_cloud->size();
@@ -185,7 +226,8 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     auto high_density_top_cloud = filter_with_density_on_z_image(tunneled_cloud, clustered_ground_histogram,
                                                                  ground_resolution, tunnel_width, tunnel_length);
 
-    auto merged_dencity_cloud{merge_clouds_and_remove_simillar_points({low_density_cloud, high_density_top_cloud}, 0.0001)};
+    auto merged_dencity_cloud{
+        merge_clouds_and_remove_simillar_points({low_density_cloud, high_density_top_cloud}, 0.0001)};
     auto density_segmentation_end = std::chrono::high_resolution_clock::now();
     density_segmentation_duration_count =
         std::chrono::duration_cast<std::chrono::microseconds>(density_segmentation_end - density_segmentation_start)
@@ -466,6 +508,36 @@ BoundingBoxArrayPtr ObjectDetection::make_bounding_boxes_from_pointclouds(const 
     return bounding_boxes;
 }
 
+Detection3DArrayPtr ObjectDetection::make_detection_3d_from_pointclouds(const CloudIPtrs& clustered_clouds,
+                                                                        const std::string& frame_name) {
+    auto bboxes = make_bounding_boxes_from_pointclouds(clustered_clouds, frame_name);
+    Detection3DArrayPtr detections(new vision_msgs::msg::Detection3DArray);
+    detections->header.frame_id = frame_name;
+    detections->header.stamp = get_clock()->now();
+
+    int i = 0;
+    for (const auto& bbox : bboxes->boxes) {
+        vision_msgs::msg::Detection3D detection;
+        detection.header = detections->header;
+        detection.bbox = bbox;
+
+        vision_msgs::msg::ObjectHypothesisWithPose object;
+        const double conveyor_position_z = 0.38;
+        const double conveyor_height = 0.60;
+        auto z_error = std::abs(bbox.center.position.z - conveyor_position_z) / conveyor_position_z;
+        auto height_error = std::abs(bbox.size.z - conveyor_height) / conveyor_height;
+        auto whole_error = z_error + height_error;
+        
+        object.hypothesis.score = std::max({0.0, 1.0 - whole_error});
+        object.hypothesis.class_id = "conveyor";
+
+        detection.results.push_back(object);
+        detections->detections.push_back(detection);
+    }
+
+    return detections;
+}
+
 CloudPtr ObjectDetection::remove_far_points_from_ros2bag_converter_bug(CloudPtr cloud, double max_distance) {
     auto new_cloud = CloudPtr(new Cloud);
     for (const auto& point : cloud->points) {
@@ -600,9 +672,8 @@ std::list<ObjectDetection::EllipsoidInfo> ObjectDetection::classificate(
         auto z_min = info.center.z - info.radiuses.radius_z;
         // From ground +- 10cm (plane segmentation) to full 0.6m size
         // RCLCPP_INFO_STREAM()
-        if (2*info.radiuses.radius_y > 0.1) {
-            if (
-                (std::abs(2 * info.radiuses.radius_z - model_z_size) < 0.1 * model_z_size) && info.center.y > 0) {
+        if (2 * info.radiuses.radius_y > 0.1) {
+            if ((std::abs(2 * info.radiuses.radius_z - model_z_size) < 0.1 * model_z_size) && info.center.y > 0) {
                 info.class_name = "0.6m_height_support";
             }
             // From ground to full 0.7m size
@@ -656,8 +727,6 @@ void ObjectDetection::save_data_to_yaml(const std::list<EllipsoidInfo>& ellipsoi
     frame_node["filters_point_sizes"]["5m_filter"] = filter_further_than_5m_points_count;
     frame_node["filters_point_sizes"]["ground_filter"] = filter_ground_points_count;
     frame_node["filters_point_sizes"]["roi"] = roi_points_count;
-
-
 
     yaml_node.push_back(frame_node);
     if (file.is_open()) {

@@ -10,6 +10,7 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <vector>
 #include <vision_msgs/msg/bounding_box3_d_array.hpp>
+#include <vision_msgs/msg/detection3_d_array.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
 using Point = pcl::PointXYZ;
@@ -35,6 +36,8 @@ using Histogram = std::vector<std::vector<std::size_t>>;
 using MarkersPtr = std::shared_ptr<visualization_msgs::msg::MarkerArray>;
 using BoundingBox = vision_msgs::msg::BoundingBox3D;
 using BoundingBoxArrayPtr = std::shared_ptr<vision_msgs::msg::BoundingBox3DArray>;
+using Detection3D = vision_msgs::msg::Detection3D;
+using Detection3DArrayPtr = std::shared_ptr<vision_msgs::msg::Detection3DArray>;
 
 CloudPtr convert_point_cloud2_to_cloud_ptr(rclcppCloudSharedPtr pc2);
 

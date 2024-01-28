@@ -29,6 +29,7 @@
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <vision_msgs/msg/bounding_box3_d_array.hpp>
+#include <vision_msgs/msg/detection3_d_array.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
 #include <objects_detection/cluster_extraction.hpp>
@@ -100,7 +101,9 @@ class ObjectDetection : public rclcpp::Node {
 
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr markers_pub_;
     rclcpp::Publisher<vision_msgs::msg::BoundingBox3DArray>::SharedPtr conveyors_candidates_bounding_box_pub_;
+    rclcpp::Publisher<vision_msgs::msg::BoundingBox3DArray>::SharedPtr conveyors_bounding_box_pub_;
     rclcpp::Publisher<vision_msgs::msg::BoundingBox3DArray>::SharedPtr bounding_box_pub_;
+    rclcpp::Publisher<vision_msgs::msg::Detection3DArray>::SharedPtr detection_3d_pub_;
 
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr forward_density_histogram_pub_;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr forward_density_clustered_histogram_pub_;
@@ -137,7 +140,8 @@ class ObjectDetection : public rclcpp::Node {
     MarkersPtr make_markers_from_ellipsoids_infos(const std::list<EllipsoidInfo> &ellipsoids_infos);
     BoundingBoxArrayPtr make_bounding_boxes_from_pointclouds(const CloudIPtrs &clustered_clouds,
                                                              const std::string &frame_name);
-
+    Detection3DArrayPtr make_detection_3d_from_pointclouds(const CloudIPtrs &clustered_clouds,
+                                                             const std::string &frame_name);
     void save_densities_to_file(const std::vector<std::size_t> &densities, const std::string &path);
 
     std::list<EllipsoidInfo> classificate(const std::list<EllipsoidInfo> &ellipsoids_infos);

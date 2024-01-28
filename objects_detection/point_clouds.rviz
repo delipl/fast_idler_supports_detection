@@ -7,8 +7,8 @@ Panels:
         - /Global Options1
         - /TF1
         - /INZ_PDs1
-        - /INZ_PDs1/ConveyorCandidates1/Status1
         - /INZ_Markers1
+        - /INZ_Markers1/ConveyorsDetection1
       Splitter Ratio: 0.46022728085517883
     Tree Height: 350
   - Class: rviz_common/Selection
@@ -293,7 +293,7 @@ Visualization Manager:
           Enabled: true
           Invert Rainbow: false
           Max Color: 255; 255; 255
-          Max Intensity: 10
+          Max Intensity: 0
           Min Color: 0; 0; 0
           Min Intensity: 0
           Name: ConveyorCandidates
@@ -726,8 +726,8 @@ Visualization Manager:
           Value: false
         - Alpha: 1
           Class: vision_msgs_rviz_plugins/BoundingBox3DArray
-          Color: 255; 255; 0
-          Enabled: true
+          Color: 150; 115; 166
+          Enabled: false
           Line Width: 0.05000000074505806
           Name: ConveyorCandidatesBoundingBoxes
           Namespaces:
@@ -739,6 +739,39 @@ Visualization Manager:
             History Policy: Keep Last
             Reliability Policy: Reliable
             Value: /inz/conveyor_candidates_bounding_boxes
+          Value: false
+        - Alpha: 1
+          Class: vision_msgs_rviz_plugins/BoundingBox3DArray
+          Color: 46; 194; 126
+          Enabled: false
+          Line Width: 0.05000000074505806
+          Name: ConveyorBoundingBoxes
+          Namespaces:
+            {}
+          Only Edge: true
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /inz/conveyor_bounding_boxes
+          Value: false
+        - Alpha: 1
+          Class: vision_msgs_rviz_plugins/Detection3DArray
+          ConfigPath: ""
+          Enabled: true
+          Line Width: 0.05000000074505806
+          Name: ConveyorsDetection
+          Namespaces:
+            score: true
+          Only Edge: true
+          Show Score: true
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /inz/detected_conveyors
           Value: true
       Enabled: true
       Name: INZ_Markers
@@ -788,25 +821,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 9.492162704467773
+      Distance: 14.641480445861816
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 1.38444983959198
-        Y: 0.10383642464876175
-        Z: 0.6297588348388672
+        X: 2.0138649940490723
+        Y: -0.0929577648639679
+        Z: 2.419558048248291
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.09979666769504547
+      Pitch: 0.19479656219482422
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 3.144413709640503
+      Yaw: 2.749408006668091
     Saved: ~
 Window Geometry:
   ColorCamera:
