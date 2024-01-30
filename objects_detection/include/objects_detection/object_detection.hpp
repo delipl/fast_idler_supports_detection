@@ -115,10 +115,8 @@ class ObjectDetection : public rclcpp::Node {
     ClusterExtraction conveyor_candidates_clusteler;
 
     CloudPtr remove_points_beyond_tunnel(CloudPtr cloud);
-    CloudPtr filter_with_density_on_x_image(CloudPtr cloud, const Histogram &histogram, double resolution, double width,
-                                            double height);
-    CloudPtr filter_with_density_on_z_image(CloudPtr cloud, const Histogram &histogram, double resolution, double width,
-                                            double length);
+    CloudPtr filter_with_density_on_x_image(CloudPtr cloud, const Histogram &histogram);
+    CloudPtr filter_with_density_on_z_image(CloudPtr cloud, const Histogram &histogram);
     CloudPtr remove_far_points_from_ros2bag_converter_bug(CloudPtr cloud, double max_distance);
     CloudPtr merge_clouds_and_remove_simillar_points(CloudPtrs clouds, double eps);
     std::pair<CloudPtr, CloudPtr> filter_ground_and_get_normal_and_height(CloudPtr cloud, int sac_model, int iterations,
@@ -129,7 +127,7 @@ class ObjectDetection : public rclcpp::Node {
 
     CloudPtr get_points_from_bounding_boxes(CloudPtr cloud, BoundingBoxArrayPtr boxes);
 
-    Histogram create_histogram(CloudPtr cloud, double resolution, double width, double height);
+    Histogram create_histogram(CloudPtr cloud, double resolution);
     Histogram remove_low_density_columns(const Histogram &histogram, std::size_t threshold);
     Histogram threshold_histogram(const Histogram &histogram, std::size_t min, std::size_t max);
     Histogram segment_local_peeks(const Histogram &histogram, std::size_t slope, std::size_t range = 1);
@@ -140,7 +138,8 @@ class ObjectDetection : public rclcpp::Node {
     MarkersPtr make_markers_from_ellipsoids_infos(const std::list<EllipsoidInfo> &ellipsoids_infos);
     BoundingBoxArrayPtr make_bounding_boxes_from_pointclouds(const CloudIPtrs &clustered_clouds,
                                                              const std::string &frame_name);
-    Detection3DArrayPtr make_detection_3d_from_pointclouds(const CloudIPtrs &clustered_clouds,
+    vision_msgs::msg::ObjectHypothesisWithPose score_conveyor(const vision_msgs::msg::BoundingBox3D bbox);
+    Detection3DArrayPtr detect_conveyors(const CloudIPtrs &clustered_clouds,
                                                              const std::string &frame_name);
     void save_densities_to_file(const std::vector<std::size_t> &densities, const std::string &path);
 
@@ -148,6 +147,8 @@ class ObjectDetection : public rclcpp::Node {
     EllipsoidInfo get_ellipsoid_and_center(CloudIPtr cloud);
     void save_data_to_yaml(const std::list<EllipsoidInfo> &ellipsoids_infos);
 
+
+    void clear_markers(const std::string &frame_name);
     std::string filename;
 
     int64_t normalization_duration_count;

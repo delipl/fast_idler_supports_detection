@@ -50,18 +50,18 @@ TEST(ObjectDetectionTest, ToCharts) {
     EXPECT_THAT(tunneled_cloud->points.size(), testing::Le(aligned_cloud->points.size()));
     save_cloud("tunneled_5.pcd", tunneled_cloud);
 
-    auto histogram = object_detection.create_histogram(tunneled_cloud, 0.1, 4.00, 1.5);
+    auto histogram = object_detection.create_histogram(tunneled_cloud, 0.1);
     auto threshold_histogram_yz = object_detection.threshold_histogram(histogram, 15, 30);
     auto density_filtered_yz =
-        object_detection.filter_with_density_on_x_image(tunneled_cloud, threshold_histogram_yz, 0.1, 4.00, 1.5);
+        object_detection.filter_with_density_on_x_image(tunneled_cloud, threshold_histogram_yz);
     EXPECT_THAT(density_filtered_yz->points.size(), testing::Le(tunneled_cloud->points.size()));
     save_cloud("density_filtered_yz_5.pcd", density_filtered_yz);
 
     auto rotated_for_ground_histogram = rotate(tunneled_cloud, 0.0, -M_PI / 2.0, 0.0);
-    auto ground_histogram = object_detection.create_histogram(rotated_for_ground_histogram, 0.1, 4.00, 5.0);
+    auto ground_histogram = object_detection.create_histogram(rotated_for_ground_histogram, 0.1);
     auto ground_local_peeks = object_detection.segment_local_peeks(ground_histogram, 10, 3);
     auto density_filtered_xy =
-        object_detection.filter_with_density_on_z_image(tunneled_cloud, ground_local_peeks, 0.1, 4.00, 5.0);
+        object_detection.filter_with_density_on_z_image(tunneled_cloud, ground_local_peeks);
     EXPECT_THAT(density_filtered_xy->points.size(), testing::Le(tunneled_cloud->points.size()));
     save_cloud("density_filtered_xy_5.pcd", density_filtered_xy);
 

@@ -56,7 +56,7 @@ CloudPtr translate(CloudPtr cloud, double x, double y, double z) {
     return transformed_cloud;
 }
 
-CloudPtr remove_intensivity_from_cloud(CloudIPtr cloud) {
+CloudPtr remove_intensity_from_cloud(CloudIPtr cloud) {
     CloudPtr new_cloud(new Cloud);
     for (const auto &point : cloud->points) {
         Point new_point;

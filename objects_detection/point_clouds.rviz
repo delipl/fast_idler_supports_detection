@@ -760,7 +760,7 @@ Visualization Manager:
           Class: vision_msgs_rviz_plugins/Detection3DArray
           ConfigPath: ""
           Enabled: true
-          Line Width: 0.05000000074505806
+          Line Width: 0.009999999776482582
           Name: ConveyorsDetection
           Namespaces:
             score: true
@@ -821,25 +821,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 14.641480445861816
+      Distance: 7.797307968139648
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 2.0138649940490723
-        Y: -0.0929577648639679
-        Z: 2.419558048248291
+        X: 1.5171194076538086
+        Y: 0.48901355266571045
+        Z: 2.0347492694854736
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.19479656219482422
+      Pitch: 0.6347964406013489
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 2.749408006668091
+      Yaw: 3.779419422149658
     Saved: ~
 Window Geometry:
   ColorCamera:

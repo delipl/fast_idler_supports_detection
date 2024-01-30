@@ -32,7 +32,7 @@ using CloudNormalPtr = CloudNormal::Ptr;
 using rclcppCloud = sensor_msgs::msg::PointCloud2;
 using rclcppCloudSharedPtr = rclcppCloud::SharedPtr;
 
-using Histogram = std::vector<std::vector<std::size_t>>;
+// using Histogram = std::vector<std::vector<std::size_t>>;
 using MarkersPtr = std::shared_ptr<visualization_msgs::msg::MarkerArray>;
 using BoundingBox = vision_msgs::msg::BoundingBox3D;
 using BoundingBoxArrayPtr = std::shared_ptr<vision_msgs::msg::BoundingBox3DArray>;
@@ -47,9 +47,28 @@ rclcppCloud convert_cloudi_ptr_to_point_cloud2(CloudIPtr cloud, const std::strin
 void print_diffrence(const std::string &logger_name, CloudPtr cloud1, CloudPtr cloud2);
 CloudPtr rotate(CloudPtr cloud, double roll, double pitch, double yaw);
 
-CloudPtr remove_intensivity_from_cloud(CloudIPtr cloud);
+CloudPtr remove_intensity_from_cloud(CloudIPtr cloud);
 CloudPtr translate(CloudPtr cloud, double x, double y, double z);
 
 bool is_point_inside_box(const Point &point, const BoundingBox &box);
 
 CloudIPtr merge_clouds(const CloudIPtrs &clouds);
+
+
+struct Histogram{
+    std::vector<std::vector<std::size_t>> data;
+    std::size_t image_width;
+    std::size_t image_height;
+    double width;
+    double length;
+    double height;
+    double resolution;
+
+    std::vector<std::size_t>& operator[](std::size_t index) {
+        return data[index];
+    }
+
+    std::vector<std::size_t> operator[](std::size_t index) const{
+        return data[index];
+    }
+};
