@@ -39,11 +39,16 @@ void print_diffrence(const std::string &logger_name, CloudPtr cloud1, CloudPtr c
 }
 
 CloudPtr rotate(CloudPtr cloud, double roll, double pitch, double yaw) {
+    if (not cloud) {
+        return nullptr;
+    }
     CloudPtr transformed_cloud(new Cloud);
     Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
+
     transform_2.rotate(Eigen::AngleAxisf(roll, Eigen::Vector3f::UnitX()));
     transform_2.rotate(Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitY()));
     transform_2.rotate(Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitZ()));
+
     pcl::transformPointCloud(*cloud, *transformed_cloud, transform_2);
     return transformed_cloud;
 }
@@ -65,6 +70,9 @@ CloudPtr remove_intensity_from_cloud(CloudIPtr cloud) {
         new_point.z = point.z;
         new_cloud->points.push_back(new_point);
     }
+
+    new_cloud->width = new_cloud->size();
+    new_cloud->height = 1;
     return new_cloud;
 }
 
@@ -81,5 +89,15 @@ CloudIPtr merge_clouds(const CloudIPtrs &clouds) {
             *merged_clouds += *cloud;
         }
     }
+    merged_clouds->width = merged_clouds->size();
+    merged_clouds->height = 1;
     return merged_clouds;
+}
+
+void print_cloud(rclcpp::Node *node, CloudPtr cloud) {
+    std::ostringstream str;
+    for (const auto &point : cloud->points) {
+        str << "(" << point.x << ", " << point.y << ", " << point.z << ") ";
+    }
+    RCLCPP_INFO_STREAM(node->get_logger(), str.str());
 }

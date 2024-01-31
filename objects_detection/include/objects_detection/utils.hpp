@@ -54,8 +54,9 @@ bool is_point_inside_box(const Point &point, const BoundingBox &box);
 
 CloudIPtr merge_clouds(const CloudIPtrs &clouds);
 
+void print_cloud(rclcpp::Node *node, CloudPtr cloud);
 
-struct Histogram{
+struct Histogram {
     std::vector<std::vector<std::size_t>> data;
     std::size_t image_width;
     std::size_t image_height;
@@ -63,12 +64,9 @@ struct Histogram{
     double length;
     double height;
     double resolution;
+    Point origin;
 
-    std::vector<std::size_t>& operator[](std::size_t index) {
-        return data[index];
-    }
+    std::vector<std::size_t> &operator[](std::size_t index) { return data[index]; }
 
-    std::vector<std::size_t> operator[](std::size_t index) const{
-        return data[index];
-    }
+    std::vector<std::size_t> operator[](std::size_t index) const { return data[index]; }
 };

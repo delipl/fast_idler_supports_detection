@@ -9,7 +9,7 @@ ObjectDetection::ObjectDetection() : Node("object_detection") {
 }
 
 void ObjectDetection::declare_parameters() {
-    // Double parameters are strings to work with rqt dynamic reconfigure.
+    // FIXME: Double parameters are strings to work with rqt dynamic reconfigure.
     declare_parameter("general.filename", "output.yaml");
 
     declare_parameter("general.pointcloud_topic_name", "/velodyne_points");
@@ -133,7 +133,6 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     RCLCPP_DEBUG(get_logger(), "Pointcloud callback.");
     if (msg->width * msg->height == 0) {
         RCLCPP_WARN(get_logger(), "Empty pointcloud skipping...");
-        
         return;
     }
 
@@ -210,34 +209,33 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
 
     clustered_conveyors_candidates_pub_->publish(
         convert_cloudi_ptr_to_point_cloud2(merged_conveyors_candidates, frame, this));
-
     clustered_conveyor_pub_->publish(convert_cloudi_ptr_to_point_cloud2(merged_conveyors, frame, this));
     detection_3d_pub_->publish(*conveyors_candidates_detection_3d_msg);
+
     auto density_segmentation_start = std::chrono::high_resolution_clock::now();
 
-    auto histogram =
-        create_histogram(merged_conveyors_without_intensity, forward_resolution);
+    auto histogram = create_histogram(merged_conveyors_without_intensity, forward_resolution);
 
-    if (not histogram.data.size() or not histogram.data[0].size() ) {
+    if (not histogram.data.size() or not histogram.data[0].size()) {
         RCLCPP_WARN(get_logger(), "Cannot create a front histogram.");
         clear_markers(frame);
         return;
     }
     auto clustered_histogram = threshold_histogram(histogram, forward_histogram_min, forward_histogram_max);
-    // auto low_density_cloud = filter_with_density_on_x_image(merged_conveyors_without_intensity, clustered_histogram,
-    //                                                         forward_resolution, tunnel_width, tunnel_height);
-    // auto rotated_for_ground_histogram = rotate(merged_conveyors_without_intensity, 0.0, -M_PI / 2.0, 0.0);
-    // auto ground_histogram =
-    //     create_histogram(rotated_for_ground_histogram, ground_resolution, tunnel_width, tunnel_length);
-    
-    // if (not ground_histogram.size() or not ground_histogram[0].size() ) {
-    //     RCLCPP_WARN(get_logger(), "Cannot create a top histogram.");
-    //     clear_markers(frame);
-    //     return;
-    // }
-    // auto clustered_ground_histogram = segment_local_peeks(ground_histogram, 10, 3);
-    // auto high_density_top_cloud = filter_with_density_on_z_image(
-    //     merged_conveyors_without_intensity, clustered_ground_histogram, ground_resolution, tunnel_width, tunnel_length);
+    auto low_density_cloud = filter_with_density_on_x_image(merged_conveyors_without_intensity, clustered_histogram);
+
+    auto rotated_for_ground_histogram = rotate(merged_conveyors_without_intensity, 0.0, -M_PI / 2.0, 0.0);
+    auto ground_histogram = create_histogram(rotated_for_ground_histogram, ground_resolution);
+
+    if (not ground_histogram.data.size() or not ground_histogram.data[0].size() ) {
+        RCLCPP_WARN(get_logger(), "Cannot create a top histogram.");
+        clear_markers(frame);
+        return;
+    }
+
+    auto clustered_ground_histogram = segment_local_peeks(ground_histogram, 10, 3);
+    auto high_density_top_cloud = filter_with_density_on_z_image(
+        merged_conveyors_without_intensity, clustered_ground_histogram);
 
     // auto merged_density_cloud{
     //     merge_clouds_and_remove_simillar_points({low_density_cloud, high_density_top_cloud}, 0.0001)};
@@ -245,12 +243,14 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     // density_segmentation_duration_count =
     //     std::chrono::duration_cast<std::chrono::microseconds>(density_segmentation_end - density_segmentation_start)
     //         .count();
+
     forward_density_histogram_pub_->publish(create_image_from_histogram(histogram));
-    // forward_density_clustered_histogram_pub_->publish(create_image_from_histogram(clustered_histogram));
-    // forward_hist_filtered_pub_->publish(convert_cloud_ptr_to_point_cloud2(low_density_cloud, frame, this));
-    // ground_density_clustered_histogram_pub_->publish(create_image_from_histogram(clustered_ground_histogram));
-    // ground_density_histogram_pub_->publish(create_image_from_histogram(ground_histogram));
-    // top_hist_filtered_pub_->publish(convert_cloud_ptr_to_point_cloud2(high_density_top_cloud, frame, this));
+    forward_density_clustered_histogram_pub_->publish(create_image_from_histogram(clustered_histogram));
+    forward_hist_filtered_pub_->publish(convert_cloud_ptr_to_point_cloud2(low_density_cloud, frame, this));
+
+    ground_density_clustered_histogram_pub_->publish(create_image_from_histogram(clustered_ground_histogram));
+    ground_density_histogram_pub_->publish(create_image_from_histogram(ground_histogram));
+    top_hist_filtered_pub_->publish(convert_cloud_ptr_to_point_cloud2(high_density_top_cloud, frame, this));
     // merged_density_clouds_pub_->publish(convert_cloud_ptr_to_point_cloud2(merged_density_cloud, frame, this));
 
     // auto clusterization_start = std::chrono::high_resolution_clock::now();
@@ -313,7 +313,7 @@ CloudPtr ObjectDetection::remove_points_beyond_tunnel(CloudPtr cloud) {
     return new_cloud;
 }
 
-void ObjectDetection::clear_markers(const std::string &frame_name){
+void ObjectDetection::clear_markers(const std::string& frame_name) {
     vision_msgs::msg::Detection3DArray empty;
     empty.header.frame_id = frame_name;
     empty.header.stamp = get_clock()->now();
@@ -328,13 +328,22 @@ Histogram ObjectDetection::create_histogram(CloudPtr cloud, double resolution) {
     auto point_with_max_y = *std::max_element(cloud->points.begin(), cloud->points.end(), compare_y);
     auto point_with_max_z = *std::max_element(cloud->points.begin(), cloud->points.end(), compare_z);
 
-    histogram_image.resolution = resolution;
-    histogram_image.width = 2 *  point_with_max_y.y;
-    histogram_image.height = point_with_max_z.z;
-    histogram_image.image_width = std::max(static_cast<std::int64_t>(histogram_image.width / histogram_image.resolution ), (std::int64_t)0);
-    histogram_image.image_height = std::max(static_cast<std::int64_t>(histogram_image.height / histogram_image.resolution ), (std::int64_t)0);
+    if (2 * point_with_max_y.y < 0 or point_with_max_z.z < 0) {
+        RCLCPP_WARN_STREAM(get_logger(), "Skipping creating histogram under the surface OXY. Width: "
+                                              << 2 * point_with_max_y.y << " height: " << point_with_max_z.z);
+        return histogram_image;
+    }
 
-    if(histogram_image.image_width == 0 or histogram_image.image_height == 0){
+    histogram_image.resolution = resolution;
+    histogram_image.width = std::abs(2 * point_with_max_y.y);
+    histogram_image.height = std::abs(point_with_max_z.z);
+    // histogram_image.origin = Point(-);
+
+
+    histogram_image.image_width = static_cast<std::size_t>(histogram_image.width / histogram_image.resolution);
+    histogram_image.image_height = static_cast<std::size_t>(histogram_image.height / histogram_image.resolution);
+
+    if (histogram_image.image_width == 0 or histogram_image.image_height == 0) {
         return histogram_image;
     }
 
@@ -346,7 +355,7 @@ Histogram ObjectDetection::create_histogram(CloudPtr cloud, double resolution) {
 
     for (const auto& point : cloud->points) {
         const auto image_width_pos = static_cast<std::size_t>((histogram_image.width / 2 - point.y) / resolution);
-        const auto image_height_pos = static_cast<std::size_t>(point.z / histogram_image.resolution );
+        const auto image_height_pos = static_cast<std::size_t>(point.z / histogram_image.resolution);
 
         if (image_width_pos >= histogram_image.image_width or image_height_pos >= histogram_image.image_height) {
             continue;
@@ -359,11 +368,11 @@ Histogram ObjectDetection::create_histogram(CloudPtr cloud, double resolution) {
 
 sensor_msgs::msg::Image ObjectDetection::create_image_from_histogram(const Histogram& histogram) {
     sensor_msgs::msg::Image image_msg;
-    image_msg.height = histogram.data.size();
-    image_msg.width = histogram.data.begin()->size();
+    image_msg.height = histogram.image_height;
+    image_msg.width = histogram.image_width;
     image_msg.encoding = "mono8";
 
-    if(image_msg.height == 0 or image_msg.width == 0){
+    if (image_msg.height == 0 or image_msg.width == 0) {
         return image_msg;
     }
 
@@ -426,7 +435,7 @@ CloudPtr ObjectDetection::filter_with_density_on_x_image(CloudPtr cloud, const H
 
     auto low_density_cloud = CloudPtr(new Cloud);
     for (const auto& point : cloud->points) {
-        const auto image_width_pos = static_cast<std::size_t>((width / 2 + point.y) / resolution);
+        const auto image_width_pos = static_cast<std::size_t>((width / 2 - point.y) / resolution);
         const auto image_height_pos = static_cast<std::size_t>(point.z / resolution);
 
         if (image_width_pos >= image_width or image_height_pos >= image_height) {
@@ -450,13 +459,13 @@ CloudPtr ObjectDetection::filter_with_density_on_z_image(CloudPtr cloud, const H
 
     auto low_density_cloud = CloudPtr(new Cloud);
     for (const auto& point : cloud->points) {
-        const auto image_width_pos = static_cast<std::size_t>((width / 2 + point.y) / resolution);
-        const auto image_lenght_pos = static_cast<std::size_t>(point.x / resolution);
+        const auto image_width_pos = static_cast<std::size_t>((width / 2 - point.y) / resolution);
+        const auto image_length_pos = static_cast<std::size_t>(point.x / resolution);
 
-        if (image_width_pos >= image_width or image_lenght_pos >= image_height) {
+        if (image_width_pos >= image_width or image_length_pos >= image_height) {
             continue;
         }
-        if (histogram.data[image_lenght_pos][image_width_pos]) {
+        if (histogram.data[image_length_pos][image_width_pos]) {
             low_density_cloud->points.push_back(point);
         }
     }
@@ -847,8 +856,8 @@ Histogram ObjectDetection::segment_local_peeks(const Histogram& histogram, std::
     for (auto i = range; i < histogram.data.size() - range; ++i) {
         for (auto j = 0u; j < histogram.data[i].size(); ++j) {
             for (auto k = 1u; k <= range; ++k) {
-                if (segmented_histogram.data[i][j] != 0 &&
-                    (histogram.data[i][j] < histogram[i - k][j] + slope || histogram.data[i][j] < histogram.data[i + k][j] + slope)) {
+                if (segmented_histogram.data[i][j] != 0 && (histogram.data[i][j] < histogram[i - k][j] + slope ||
+                                                            histogram.data[i][j] < histogram.data[i + k][j] + slope)) {
                     segmented_histogram.data[i][j] = 0;
                 }
             }
