@@ -1,4 +1,5 @@
 #pragma once
+#define PCL_NO_PRECOMPILE
 
 #include <vector>
 
@@ -13,8 +14,8 @@
 class ClusterExtraction {
    public:
     ClusterExtraction() = default;
-    CloudIPtrs euclidean(CloudPtr cloud, double tolerance, std::size_t min_size, std::size_t max_size) const;
-    CloudIPtrs euclidean(CloudPtr cloud) const;
+    CloudIRLPtrs euclidean(CloudIRPtr cloud, double tolerance, std::size_t min_size, std::size_t max_size) const;
+    CloudIRLPtrs euclidean(CloudIRPtr cloud) const;
 
     double euclidean_tolerance = 0.0;
     double euclidean_min_size = 0;

@@ -43,9 +43,9 @@ void ObjectDetection::declare_parameters() {
     declare_parameter("conveyor_candidates_clusteler.euclidean.min_size", "100");
     declare_parameter("conveyor_candidates_clusteler.euclidean.max_size", "3000");
 
-    declare_parameter("clusteler.euclidean.tolerance", "0.5");
-    declare_parameter("clusteler.euclidean.min_size", "20");
-    declare_parameter("clusteler.euclidean.max_size", "500");
+    declare_parameter("support_candidates_clusteler.euclidean.tolerance", "0.3");
+    declare_parameter("support_candidates_clusteler.euclidean.min_size", "20");
+    declare_parameter("support_candidates_clusteler.euclidean.max_size", "500");
 }
 
 void ObjectDetection::get_parameters() {
@@ -82,9 +82,12 @@ void ObjectDetection::get_parameters() {
     conveyor_candidates_clusteler.euclidean_min_size =
         std::stoi(get_parameter("conveyor_candidates_clusteler.euclidean.min_size").as_string());
 
-    clusteler.euclidean_tolerance = std::stod(get_parameter("clusteler.euclidean.tolerance").as_string());
-    clusteler.euclidean_max_size = std::stoi(get_parameter("clusteler.euclidean.max_size").as_string());
-    clusteler.euclidean_min_size = std::stoi(get_parameter("clusteler.euclidean.min_size").as_string());
+    supports_candidates_clusteler.euclidean_tolerance =
+        std::stod(get_parameter("support_candidates_clusteler.euclidean.tolerance").as_string());
+    supports_candidates_clusteler.euclidean_max_size =
+        std::stoi(get_parameter("support_candidates_clusteler.euclidean.max_size").as_string());
+    supports_candidates_clusteler.euclidean_min_size =
+        std::stoi(get_parameter("support_candidates_clusteler.euclidean.min_size").as_string());
 }
 
 void ObjectDetection::create_rclcpp_instances() {
@@ -95,10 +98,11 @@ void ObjectDetection::create_rclcpp_instances() {
     outlier_removal_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/outlier_removal", 10);
     forward_hist_filtered_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/forward_hist_filtered_pub_", 10);
     top_hist_filtered_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/top_hist_filtered_pub_", 10);
-    clustered_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered", 10);
     clustered_conveyor_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered_conveyor", 10);
     clustered_conveyors_candidates_pub_ =
         create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered_conveyors_candidates", 10);
+    clustered_supports_candidates_pub_ =
+        create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered_supports_candidates", 10);
     merged_density_clouds_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/merged_density_clouds", 10);
     plane_filter_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/plane_filter", 10);
 
@@ -110,15 +114,15 @@ void ObjectDetection::create_rclcpp_instances() {
 
     conveyors_bounding_box_pub_ =
         create_publisher<vision_msgs::msg::BoundingBox3DArray>("inz/conveyor_bounding_boxes", 10);
-    forward_density_histogram_pub_ = create_publisher<sensor_msgs::msg::Image>("inz/forward_desity_histogram", 10);
+    forward_density_histogram_pub_ = create_publisher<sensor_msgs::msg::Image>("inz/forward_density_histogram", 10);
     forward_density_clustered_histogram_pub_ =
-        create_publisher<sensor_msgs::msg::Image>("inz/forward_desity_clustered_histogram", 10);
+        create_publisher<sensor_msgs::msg::Image>("inz/forward_density_clustered_histogram", 10);
 
-    ground_density_histogram_pub_ = create_publisher<sensor_msgs::msg::Image>("inz/ground_desity_histogram", 10);
+    ground_density_histogram_pub_ = create_publisher<sensor_msgs::msg::Image>("inz/ground_density_histogram", 10);
     ground_density_clustered_histogram_pub_ =
-        create_publisher<sensor_msgs::msg::Image>("inz/ground_desity_clustered_histogram", 10);
+        create_publisher<sensor_msgs::msg::Image>("inz/ground_density_clustered_histogram", 10);
     ground_density_histogram_multiplied_pub_ =
-        create_publisher<sensor_msgs::msg::Image>("inz/ground_desity_multiplied_histogram", 10);
+        create_publisher<sensor_msgs::msg::Image>("inz/ground_density_multiplied_histogram", 10);
     markers_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>("marker_array", 10);
 
     using std::placeholders::_1;
@@ -135,19 +139,17 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
         RCLCPP_WARN(get_logger(), "Empty pointcloud skipping...");
         return;
     }
-
     auto normalization_start = std::chrono::high_resolution_clock::now();
     auto frame = msg->header.frame_id;
-    auto cloud_raw{convert_point_cloud2_to_cloud_ptr(msg)};
-    auto raw_without_convert_error = remove_far_points_from_ros2bag_converter_bug(cloud_raw, 999.0);
-    original_points_count = raw_without_convert_error->size();
-    auto cloud = remove_far_points_from_ros2bag_converter_bug(cloud_raw, 5.0);
+    auto cloud_raw = pcl_utils::convert_point_cloud2_to_cloud_ptr<PointIR>(msg);
+
+    auto cloud = pcl_utils::remove_far_points_from_ros2bag_converter_bug<PointIR>(cloud_raw, 5.0);
     filter_further_than_5m_points_count = cloud->size();
     // Ground Filtering
     Eigen::Vector3d normal_vec;
     double ground_height;
 
-    CloudPtr cloud_for_ground_detection(new Cloud);
+    CloudIRPtr cloud_for_ground_detection(new CloudIR);
     for (const auto& point : cloud->points) {
         if (std::abs(point.y) < tunnel_width / 2.0) {
             cloud_for_ground_detection->push_back(point);
@@ -166,12 +168,12 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
 
     normalization_duration_count =
         std::chrono::duration_cast<std::chrono::microseconds>(normalization_end - normalization_start).count();
-    ground_pub_->publish(convert_cloud_ptr_to_point_cloud2(ground, frame, this));
-    without_ground_pub_->publish(convert_cloud_ptr_to_point_cloud2(without_ground, frame, this));
-    transformed_pub_->publish(convert_cloud_ptr_to_point_cloud2(aligned_cloud, frame, this));
+    ground_pub_->publish(pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIR>(ground, frame, this));
+    without_ground_pub_->publish(pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIR>(without_ground, frame, this));
+    transformed_pub_->publish(pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIR>(aligned_cloud, frame, this));
 
     // Conveyors detection based on position.z and height
-    CloudIPtrs clustered_conveyors_candidates = conveyor_candidates_clusteler.euclidean(aligned_cloud);
+    auto clustered_conveyors_candidates = conveyor_candidates_clusteler.euclidean(aligned_cloud);
     if (not clustered_conveyors_candidates.size()) {
         RCLCPP_WARN(get_logger(), "Cannot find any conveyor candidate! Skipping pointcloud");
         clear_markers(frame);
@@ -183,7 +185,7 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     Detection3DArrayPtr conveyors_detection_3d_msg;
     conveyors_detection_3d_msg =
         std::make_shared<vision_msgs::msg::Detection3DArray>(*conveyors_candidates_detection_3d_msg);
-    CloudIPtrs clustered_conveyors(clustered_conveyors_candidates);
+    CloudIRLPtrs clustered_conveyors(clustered_conveyors_candidates);
     auto it1 = conveyors_detection_3d_msg->detections.begin();
     auto it2 = clustered_conveyors.begin();
 
@@ -203,18 +205,19 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
         return;
     }
 
-    auto merged_conveyors_candidates = merge_clouds(clustered_conveyors_candidates);
-    auto merged_conveyors = merge_clouds(clustered_conveyors);
-    auto merged_conveyors_without_intensity = remove_intensity_from_cloud(merged_conveyors);
+    auto merged_conveyors_candidates = pcl_utils::merge_clouds<PointIRL>(clustered_conveyors_candidates);
+    auto merged_conveyors = pcl_utils::merge_clouds<PointIRL>(clustered_conveyors);
+    //     auto merged_conveyors_without_intensity = remove_intensity_from_cloud(merged_conveyors);
 
     clustered_conveyors_candidates_pub_->publish(
-        convert_cloudi_ptr_to_point_cloud2(merged_conveyors_candidates, frame, this));
-    clustered_conveyor_pub_->publish(convert_cloudi_ptr_to_point_cloud2(merged_conveyors, frame, this));
+        pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(merged_conveyors_candidates, frame, this));
+    clustered_conveyor_pub_->publish(
+        pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(merged_conveyors, frame, this));
     detection_3d_pub_->publish(*conveyors_candidates_detection_3d_msg);
 
     auto density_segmentation_start = std::chrono::high_resolution_clock::now();
 
-    auto histogram = create_histogram(merged_conveyors_without_intensity, forward_resolution);
+    auto histogram = create_histogram(merged_conveyors, forward_resolution);
 
     if (not histogram.data.size() or not histogram.data[0].size()) {
         RCLCPP_WARN(get_logger(), "Cannot create a front histogram.");
@@ -222,57 +225,66 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
         return;
     }
     auto clustered_histogram = threshold_histogram(histogram, forward_histogram_min, forward_histogram_max);
-    auto low_density_cloud = filter_with_density_on_x_image(merged_conveyors_without_intensity, clustered_histogram);
+    auto low_density_cloud = filter_with_density_on_x_image(merged_conveyors, clustered_histogram);
 
-    auto rotated_for_ground_histogram = rotate(merged_conveyors_without_intensity, 0.0, -M_PI / 2.0, 0.0);
+    auto rotated_for_ground_histogram = pcl_utils::rotate<PointIRL>(merged_conveyors, 0.0, -M_PI / 2.0, 0.0);
     auto ground_histogram = create_histogram(rotated_for_ground_histogram, ground_resolution);
 
-    if (not ground_histogram.data.size() or not ground_histogram.data[0].size() ) {
+    if (not ground_histogram.data.size() or not ground_histogram.data[0].size()) {
         RCLCPP_WARN(get_logger(), "Cannot create a top histogram.");
         clear_markers(frame);
         return;
     }
 
     auto clustered_ground_histogram = segment_local_peeks(ground_histogram, 10, 3);
-    auto high_density_top_cloud = filter_with_density_on_z_image(
-        merged_conveyors_without_intensity, clustered_ground_histogram);
+    auto high_density_top_cloud = filter_with_density_on_z_image(merged_conveyors, clustered_ground_histogram);
 
-    // auto merged_density_cloud{
-    //     merge_clouds_and_remove_simillar_points({low_density_cloud, high_density_top_cloud}, 0.0001)};
-    // auto density_segmentation_end = std::chrono::high_resolution_clock::now();
-    // density_segmentation_duration_count =
-    //     std::chrono::duration_cast<std::chrono::microseconds>(density_segmentation_end - density_segmentation_start)
-    //         .count();
+    auto merged_density_cloud{pcl_utils::merge_clouds_and_remove_simillar_points<PointIRL>(
+        {low_density_cloud, high_density_top_cloud}, 0.0001)};
+    auto density_segmentation_end = std::chrono::high_resolution_clock::now();
+    density_segmentation_duration_count =
+        std::chrono::duration_cast<std::chrono::microseconds>(density_segmentation_end - density_segmentation_start)
+            .count();
 
     forward_density_histogram_pub_->publish(create_image_from_histogram(histogram));
     forward_density_clustered_histogram_pub_->publish(create_image_from_histogram(clustered_histogram));
-    forward_hist_filtered_pub_->publish(convert_cloud_ptr_to_point_cloud2(low_density_cloud, frame, this));
+    forward_hist_filtered_pub_->publish(
+        pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(low_density_cloud, frame, this));
 
     ground_density_clustered_histogram_pub_->publish(create_image_from_histogram(clustered_ground_histogram));
     ground_density_histogram_pub_->publish(create_image_from_histogram(ground_histogram));
-    top_hist_filtered_pub_->publish(convert_cloud_ptr_to_point_cloud2(high_density_top_cloud, frame, this));
-    // merged_density_clouds_pub_->publish(convert_cloud_ptr_to_point_cloud2(merged_density_cloud, frame, this));
+    top_hist_filtered_pub_->publish(
+        pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(high_density_top_cloud, frame, this));
+    merged_density_clouds_pub_->publish(
+        pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(merged_density_cloud, frame, this));
 
-    // auto clusterization_start = std::chrono::high_resolution_clock::now();
-    // CloudIPtrs clustered_clouds = clusteler.euclidean(high_density_top_cloud);
-    // max_detected_legs = std::max(max_detected_legs, clustered_clouds.size());
-    // CloudIPtr merged_clustered_cloud(new CloudI);
+    auto clusterization_start = std::chrono::high_resolution_clock::now();
 
-    // std::list<EllipsoidInfo> ellipsoids_infos;
-    // std::stringstream points_stream;
-    // for (auto& clustered_cloud : clustered_clouds) {
-    //     if (clustered_cloud->size()) {
-    //         *merged_clustered_cloud += *clustered_cloud;
-    //     }
-    // }
+    // TODO: create function remove label
+    auto pc2 = std::make_shared<sensor_msgs::msg::PointCloud2>(
+        pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(high_density_top_cloud, frame, this));
+    auto top_cloud = pcl_utils::convert_point_cloud2_to_cloud_ptr<PointIR>(pc2);
 
-    // auto clusterization_end = std::chrono::high_resolution_clock::now();
-    // clusterization_duration_count =
-    //     std::chrono::duration_cast<std::chrono::microseconds>(clusterization_end - clusterization_start).count();
-    // // clustered_conveyor_pub_->publish(convert_cloudi_ptr_to_point_cloud2(merged_clustered_cloud, frame, this));
+    auto clustered_supports_candidates = supports_candidates_clusteler.euclidean(top_cloud);
+
+    // // supports detection
+
+    auto merged_supports_candidates = pcl_utils::merge_clouds<PointIRL>(clustered_supports_candidates);
+    // auto merged_supports = merge_clouds(clustered_conveyors);
+
+    auto clusterization_end = std::chrono::high_resolution_clock::now();
+    clusterization_duration_count =
+        std::chrono::duration_cast<std::chrono::microseconds>(clusterization_end - clusterization_start).count();
+    clustered_supports_candidates_pub_->publish(
+        pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(merged_supports_candidates, frame, this));
+
+    //     std::list<EllipsoidInfo> ellipsoids_infos;
+    //     std::stringstream points_stream;
+
+    // KALSSSYSSFIKACJAA!!
 
     // auto estimation_start = std::chrono::high_resolution_clock::now();
-    // for (auto& clustered_cloud : clustered_clouds) {
+    // for (auto& clustered_cloud : clustered_supports_candidates) {
     //     if (clustered_cloud->size()) {
     //         auto ellipsoide_info = get_ellipsoid_and_center(clustered_cloud);
     //         ellipsoids_infos.push_back(ellipsoide_info);
@@ -288,11 +300,12 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     // classification_duration_count =
     //     std::chrono::duration_cast<std::chrono::microseconds>(classification_end - classification_start).count();
 
-    // auto bounding_boxes_msg = make_bounding_boxes_from_pointclouds(clustered_clouds, frame);
+    // auto bounding_boxes_msg = make_bounding_boxes_from_pointclouds(clustered_supports_candidates, frame);
     // auto spheres = make_markers_from_ellipsoids_infos(classificated_ellipsoides_info);
     // bounding_box_pub_->publish(*bounding_boxes_msg);
     // markers_pub_->publish(*spheres);
-    // only_legs_pub_->publish(convert_cloudi_ptr_to_point_cloud2(merged_clustered_cloud, frame, this));
+    // only_legs_pub_->publish(convert_cloudi_ptr_to_point_cloud2(merged_supports_candidates_clustered_cloud, frame,
+    // this));
 
     // ++counter;
     // save_data_to_yaml(classificated_ellipsoides_info);
@@ -320,25 +333,23 @@ void ObjectDetection::clear_markers(const std::string& frame_name) {
     detection_3d_pub_->publish(empty);
 }
 
-Histogram ObjectDetection::create_histogram(CloudPtr cloud, double resolution) {
+Histogram ObjectDetection::create_histogram(CloudIRLPtr cloud, double resolution) {
     Histogram histogram_image;
-    auto compare_y = [](const Point lhs, const Point rhs) { return lhs.y < rhs.y; };
-    auto compare_z = [](const Point lhs, const Point rhs) { return lhs.z < rhs.z; };
+    auto compare_y = [](const PointIRL lhs, const PointIRL rhs) { return lhs.y < rhs.y; };
+    auto compare_z = [](const PointIRL lhs, const PointIRL rhs) { return lhs.z < rhs.z; };
 
     auto point_with_max_y = *std::max_element(cloud->points.begin(), cloud->points.end(), compare_y);
     auto point_with_max_z = *std::max_element(cloud->points.begin(), cloud->points.end(), compare_z);
 
     if (2 * point_with_max_y.y < 0 or point_with_max_z.z < 0) {
         RCLCPP_WARN_STREAM(get_logger(), "Skipping creating histogram under the surface OXY. Width: "
-                                              << 2 * point_with_max_y.y << " height: " << point_with_max_z.z);
+                                             << 2 * point_with_max_y.y << " height: " << point_with_max_z.z);
         return histogram_image;
     }
 
     histogram_image.resolution = resolution;
     histogram_image.width = std::abs(2 * point_with_max_y.y);
     histogram_image.height = std::abs(point_with_max_z.z);
-    // histogram_image.origin = Point(-);
-
 
     histogram_image.image_width = static_cast<std::size_t>(histogram_image.width / histogram_image.resolution);
     histogram_image.image_height = static_cast<std::size_t>(histogram_image.height / histogram_image.resolution);
@@ -426,14 +437,14 @@ void ObjectDetection::save_densities_to_file(const std::vector<std::size_t>& den
     file.close();
 }
 
-CloudPtr ObjectDetection::filter_with_density_on_x_image(CloudPtr cloud, const Histogram& histogram) {
+CloudIRLPtr ObjectDetection::filter_with_density_on_x_image(CloudIRLPtr cloud, const Histogram& histogram) {
     const auto width = histogram.width;
     const auto height = histogram.height;
     const auto image_width = histogram.image_width;
     const auto image_height = histogram.image_height;
     const auto resolution = histogram.resolution;
 
-    auto low_density_cloud = CloudPtr(new Cloud);
+    auto low_density_cloud = CloudIRLPtr(new CloudIRL);
     for (const auto& point : cloud->points) {
         const auto image_width_pos = static_cast<std::size_t>((width / 2 - point.y) / resolution);
         const auto image_height_pos = static_cast<std::size_t>(point.z / resolution);
@@ -450,14 +461,14 @@ CloudPtr ObjectDetection::filter_with_density_on_x_image(CloudPtr cloud, const H
     return low_density_cloud;
 }
 
-CloudPtr ObjectDetection::filter_with_density_on_z_image(CloudPtr cloud, const Histogram& histogram) {
+CloudIRLPtr ObjectDetection::filter_with_density_on_z_image(CloudIRLPtr cloud, const Histogram& histogram) {
     const auto width = histogram.width;
     const auto height = histogram.height;
     const auto image_width = histogram.image_width;
     const auto image_height = histogram.image_height;
     const auto resolution = histogram.resolution;
 
-    auto low_density_cloud = CloudPtr(new Cloud);
+    auto low_density_cloud = CloudIRLPtr(new CloudIRL);
     for (const auto& point : cloud->points) {
         const auto image_width_pos = static_cast<std::size_t>((width / 2 - point.y) / resolution);
         const auto image_length_pos = static_cast<std::size_t>(point.x / resolution);
@@ -505,29 +516,10 @@ Histogram ObjectDetection::remove_low_density_columns(const Histogram& histogram
     return clustered_histogram;
 }
 
-CloudPtr ObjectDetection::merge_clouds_and_remove_simillar_points(CloudPtrs clouds, double eps) {
-    CloudPtr new_cloud(new Cloud);
-    for (const auto& cloud : clouds) {
-        *new_cloud += *cloud;
-    }
-    for (std::size_t i = 0; i < new_cloud->size(); ++i) {
-        for (std::size_t j = 0; j < new_cloud->size(); ++j) {
-            if (i == j) continue;
-            const double distance = pcl::euclideanDistance(new_cloud->points[i], new_cloud->points[j]);
-            if (distance < eps) {
-                new_cloud->points.erase(new_cloud->points.begin() + j);
-            }
-        }
-    }
-    new_cloud->height = new_cloud->points.size();
-    new_cloud->width = 1;
-    return new_cloud;
-}
-
-BoundingBoxArrayPtr ObjectDetection::make_bounding_boxes_from_pointclouds(const CloudIPtrs& clustered_clouds,
-                                                                          const std::string& frame_name) {
+BoundingBoxArrayPtr ObjectDetection::make_bounding_boxes_from_pointclouds(
+    const CloudIRLPtrs& clustered_supports_candidates, const std::string& frame_name) {
     BoundingBoxArrayPtr bounding_boxes(new vision_msgs::msg::BoundingBox3DArray);
-    for (const auto& leg : clustered_clouds) {
+    for (const auto& leg : clustered_supports_candidates) {
         vision_msgs::msg::BoundingBox3D bounding_box;
         const float& max_value = std::numeric_limits<float>::max();
         const float& min_value = -std::numeric_limits<float>::max();
@@ -571,9 +563,9 @@ vision_msgs::msg::ObjectHypothesisWithPose ObjectDetection::score_conveyor(const
     return object;
 }
 
-Detection3DArrayPtr ObjectDetection::detect_conveyors(const CloudIPtrs& clustered_clouds,
+Detection3DArrayPtr ObjectDetection::detect_conveyors(const CloudIRLPtrs& clustered_supports_candidates,
                                                       const std::string& frame_name) {
-    auto bboxes = make_bounding_boxes_from_pointclouds(clustered_clouds, frame_name);
+    auto bboxes = make_bounding_boxes_from_pointclouds(clustered_supports_candidates, frame_name);
     Detection3DArrayPtr detections(new vision_msgs::msg::Detection3DArray);
     detections->header.frame_id = frame_name;
     detections->header.stamp = get_clock()->now();
@@ -590,18 +582,18 @@ Detection3DArrayPtr ObjectDetection::detect_conveyors(const CloudIPtrs& clustere
     return detections;
 }
 
-CloudPtr ObjectDetection::remove_far_points_from_ros2bag_converter_bug(CloudPtr cloud, double max_distance) {
-    auto new_cloud = CloudPtr(new Cloud);
-    for (const auto& point : cloud->points) {
-        const auto distance = pcl::euclideanDistance(point, Point{0, 0, 0});
-        if (distance < max_distance) {
-            new_cloud->points.push_back(point);
-        }
-    }
-    new_cloud->height = new_cloud->points.size();
-    new_cloud->width = 1;
-    return new_cloud;
-}
+// CloudIRPtr ObjectDetection::remove_far_points_from_ros2bag_converter_bug(CloudIRPtr cloud, double max_distance) {
+//     auto new_cloud = CloudPtr(new Cloud);
+//     for (const auto& point : cloud->points) {
+//         const auto distance = pcl::euclideanDistance(point, Point{0, 0, 0});
+//         if (distance < max_distance) {
+//             new_cloud->points.push_back(point);
+//         }
+//     }
+//     new_cloud->height = new_cloud->points.size();
+//     new_cloud->width = 1;
+//     return new_cloud;
+// }
 
 CloudPtr ObjectDetection::remove_right_points(CloudPtr cloud) {
     auto new_cloud = CloudPtr(new Cloud);
@@ -630,25 +622,23 @@ CloudPtr ObjectDetection::get_points_from_bounding_boxes(CloudPtr cloud, Boundin
     return new_cloud;
 }
 
-std::pair<CloudPtr, CloudPtr> ObjectDetection::filter_ground_and_get_normal_and_height(CloudPtr cloud, int sac_model,
-                                                                                       int iterations, double radius,
-                                                                                       Eigen::Vector3d& normal,
-                                                                                       double& ground_height,
-                                                                                       double eps) {
+std::pair<CloudIRPtr, CloudIRPtr> ObjectDetection::filter_ground_and_get_normal_and_height(
+    CloudIRPtr cloud, int sac_model, int iterations, double radius, Eigen::Vector3d& normal, double& ground_height,
+    double eps) {
     // Segment ground
     pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
-    CloudPtr ground(new Cloud);
-    CloudPtr without_ground(new Cloud);
+    CloudIRPtr ground(new CloudIR);
+    CloudIRPtr without_ground(new CloudIR);
 
-    pcl::SACSegmentation<Point> seg;
+    pcl::SACSegmentation<pcl::PointXYZIR> seg;
     seg.setOptimizeCoefficients(true);
     seg.setModelType(sac_model);
     seg.setMethodType(pcl::SAC_RANSAC);
     seg.setDistanceThreshold(radius);
     seg.setMaxIterations(iterations);
     seg.setEpsAngle(eps);
-    pcl::ExtractIndices<Point> extract;
+    pcl::ExtractIndices<pcl::PointXYZIR> extract;
     seg.setInputCloud(cloud);
     seg.segment(*inliers, *coefficients);
     if (inliers->indices.size() == 0) {
@@ -668,7 +658,7 @@ std::pair<CloudPtr, CloudPtr> ObjectDetection::filter_ground_and_get_normal_and_
     return {ground, without_ground};
 }
 
-CloudPtr ObjectDetection::align_to_normal(CloudPtr cloud, const Eigen::Vector3d& normal, double ground_height) {
+CloudIRPtr ObjectDetection::align_to_normal(CloudIRPtr cloud, const Eigen::Vector3d& normal, double ground_height) {
     const auto& up_vector = Eigen::Vector3d::UnitZ();
     Eigen::Vector3d axis = normal.cross(up_vector).normalized();
     float angle = acos(normal.dot(up_vector) / (normal.norm() * up_vector.norm()));
@@ -677,7 +667,8 @@ CloudPtr ObjectDetection::align_to_normal(CloudPtr cloud, const Eigen::Vector3d&
     rotation_matrix = Eigen::AngleAxisd(angle, axis);
     RCLCPP_DEBUG_STREAM(get_logger(), "Rotation matrix: \n" << rotation_matrix);
     Eigen::Vector3d rpy = rotation_matrix.normalized().eulerAngles(2, 1, 0);
-    auto transformed_cloud = translate(rotate(cloud, rpy[0], rpy[1], rpy[2] + 0.06), 0, 0, ground_height);
+    auto transformed_cloud = pcl_utils::translate<pcl::PointXYZIR>(
+        pcl_utils::rotate<pcl::PointXYZIR>(cloud, rpy[0], rpy[1], rpy[2] + 0.06), 0, 0, ground_height);
     transformed_cloud->height = transformed_cloud->points.size();
     transformed_cloud->width = 1;
     return transformed_cloud;

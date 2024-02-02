@@ -1,8 +1,9 @@
 cmake_minimum_required(VERSION 3.8)
 project(objects_detection)
 
+set(CMAKE_CXX_STANDARD 17)
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
+add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 find_package(ament_cmake REQUIRED)
@@ -19,9 +20,8 @@ include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
-
 include_directories(
-        ${catkin_INCLUDE_DIRS}
+  ${catkin_INCLUDE_DIRS}
         ${PCL_INCLUDE_DIRS}
         include
 )
@@ -29,6 +29,7 @@ include_directories(
 add_library(detection_library SHARED
   src/utils.cpp
   src/cluster_extraction.cpp
+  src/point_types.cpp
 )
 
 target_include_directories(
@@ -76,23 +77,23 @@ ament_export_dependencies(
   vision_msgs
 )
 
-if(BUILD_TESTING)
-  find_package(ament_cmake_gmock REQUIRED)
-  ament_add_gmock(${PROJECT_NAME}_tests
-    test/test_tutorial.cpp
-    src/object_detection.cpp
-  )
-  target_include_directories(${PROJECT_NAME}_tests PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-  )
-  ament_target_dependencies(${PROJECT_NAME}_tests
-    rclcpp
-    sensor_msgs
-    pcl_conversions
-  )
-  target_link_libraries(${PROJECT_NAME}_tests ${PCL_LIBRARIES} detection_library)
-endif()
+# if(BUILD_TESTING)
+#   find_package(ament_cmake_gmock REQUIRED)
+#   ament_add_gmock(${PROJECT_NAME}_tests
+#     test/test_tutorial.cpp
+#     src/object_detection.cpp
+#   )
+#   target_include_directories(${PROJECT_NAME}_tests PUBLIC
+#     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+#     $<INSTALL_INTERFACE:include>
+#   )
+#   ament_target_dependencies(${PROJECT_NAME}_tests
+#     rclcpp
+#     sensor_msgs
+#     pcl_conversions
+#   )
+#   target_link_libraries(${PROJECT_NAME}_tests ${PCL_LIBRARIES} detection_library)
+# endif()
 
 install(DIRECTORY
   test_data
@@ -105,9 +106,9 @@ add_executable(object_detection
   src/node.cpp
 )
 
-add_executable(save_pointcloud
-  src/save_pointcloud.cpp
-)
+# add_executable(save_pointcloud
+#   src/save_pointcloud.cpp
+# )
 
 ament_target_dependencies(object_detection
   rclcpp
@@ -117,11 +118,11 @@ ament_target_dependencies(object_detection
   vision_msgs
 )
 
-ament_target_dependencies(save_pointcloud
-  rclcpp
-  sensor_msgs
-  pcl_conversions
-)
+# ament_target_dependencies(save_pointcloud
+#   rclcpp
+#   sensor_msgs
+#   pcl_conversions
+# )
 
 target_include_directories(
   object_detection
@@ -129,18 +130,18 @@ target_include_directories(
   include
 )
 
-target_include_directories(
-  save_pointcloud
-  PUBLIC
-  include
-)
+# target_include_directories(
+#   save_pointcloud
+#   PUBLIC
+#   include
+# )
 
 target_link_libraries(object_detection ${PCL_LIBRARIES} detection_library)
-target_link_libraries(save_pointcloud ${PCL_LIBRARIES} detection_library)
+# target_link_libraries(save_pointcloud ${PCL_LIBRARIES} detection_library)
 
 install(TARGETS
   object_detection
-  save_pointcloud
+  # save_pointcloud
   DESTINATION lib/${PROJECT_NAME})
 
 ament_python_install_package(${PROJECT_NAME})

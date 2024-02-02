@@ -7,9 +7,11 @@ Panels:
         - /Global Options1
         - /TF1
         - /INZ_PDs1
+        - /INZ_PDs1/Transformed1
         - /INZ_HISs1
-      Splitter Ratio: 0.46022728085517883
-    Tree Height: 176
+        - /INZ_Markers1
+      Splitter Ratio: 0.6857143044471741
+    Tree Height: 354
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -81,7 +83,7 @@ Visualization Manager:
         Value: /ir/cv_camera_ir/image_raw
       Value: false
     - Class: rviz_default_plugins/Image
-      Enabled: true
+      Enabled: false
       Max Value: 1
       Median window: 5
       Min Value: 0
@@ -93,7 +95,7 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /camera/color/image_raw
-      Value: true
+      Value: false
     - Class: rviz_common/Group
       Displays:
         - Alpha: 1
@@ -103,15 +105,15 @@ Visualization Manager:
             Min Value: -10
             Value: true
           Axis: Z
-          Channel Name: intensity
+          Channel Name: ring
           Class: rviz_default_plugins/PointCloud2
           Color: 53; 132; 228
-          Color Transformer: FlatColor
+          Color Transformer: Intensity
           Decay Time: 0
           Enabled: false
           Invert Rainbow: false
           Max Color: 255; 255; 255
-          Max Intensity: 255
+          Max Intensity: 15
           Min Color: 0; 0; 0
           Min Intensity: 0
           Name: RawVelodyne
@@ -137,7 +139,7 @@ Visualization Manager:
             Min Value: -10
             Value: true
           Axis: Z
-          Channel Name: intensity
+          Channel Name: ring
           Class: rviz_default_plugins/PointCloud2
           Color: 255; 255; 255
           Color Transformer: Intensity
@@ -145,7 +147,7 @@ Visualization Manager:
           Enabled: false
           Invert Rainbow: false
           Max Color: 255; 255; 255
-          Max Intensity: 4096
+          Max Intensity: 15
           Min Color: 0; 0; 0
           Min Intensity: 0
           Name: Ground
@@ -205,7 +207,7 @@ Visualization Manager:
             Min Value: -10
             Value: true
           Axis: Z
-          Channel Name: intensity
+          Channel Name: ring
           Class: rviz_default_plugins/PointCloud2
           Color: 153; 193; 241
           Color Transformer: FlatColor
@@ -213,7 +215,7 @@ Visualization Manager:
           Enabled: true
           Invert Rainbow: false
           Max Color: 255; 255; 255
-          Max Intensity: 4096
+          Max Intensity: 15
           Min Color: 0; 0; 0
           Min Intensity: 0
           Name: Transformed
@@ -239,7 +241,7 @@ Visualization Manager:
             Min Value: -10
             Value: true
           Axis: Z
-          Channel Name: intensity
+          Channel Name: ring
           Class: rviz_default_plugins/PointCloud2
           Color: 255; 255; 255
           Color Transformer: Intensity
@@ -247,7 +249,7 @@ Visualization Manager:
           Enabled: false
           Invert Rainbow: false
           Max Color: 255; 255; 255
-          Max Intensity: 10
+          Max Intensity: 15
           Min Color: 0; 0; 0
           Min Intensity: 0
           Name: ConveyorCandidates
@@ -269,79 +271,11 @@ Visualization Manager:
         - Alpha: 1
           Autocompute Intensity Bounds: true
           Autocompute Value Bounds:
-            Max Value: 10
-            Min Value: -10
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz_default_plugins/PointCloud2
-          Color: 38; 162; 105
-          Color Transformer: FlatColor
-          Decay Time: 0
-          Enabled: false
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Max Intensity: 4096
-          Min Color: 0; 0; 0
-          Min Intensity: 0
-          Name: Tunneled
-          Position Transformer: XYZ
-          Selectable: true
-          Size (Pixels): 3
-          Size (m): 0.009999999776482582
-          Style: Flat Squares
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            Filter size: 10
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /inz/tunneled
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: false
-        - Alpha: 1
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 10
-            Min Value: -10
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz_default_plugins/PointCloud2
-          Color: 255; 120; 0
-          Color Transformer: FlatColor
-          Decay Time: 0
-          Enabled: false
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Max Intensity: 4096
-          Min Color: 0; 0; 0
-          Min Intensity: 0
-          Name: OutlierRemoved
-          Position Transformer: XYZ
-          Selectable: true
-          Size (Pixels): 3
-          Size (m): 0.009999999776482582
-          Style: Flat Squares
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            Filter size: 10
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /inz/outlier_removal
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: false
-        - Alpha: 1
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
             Max Value: 0.6992762088775635
             Min Value: 0.10011792182922363
             Value: true
           Axis: Z
-          Channel Name: intensity
+          Channel Name: ring
           Class: rviz_default_plugins/PointCloud2
           Color: 255; 255; 255
           Color Transformer: Intensity
@@ -349,7 +283,7 @@ Visualization Manager:
           Enabled: false
           Invert Rainbow: false
           Max Color: 255; 255; 255
-          Max Intensity: 0
+          Max Intensity: 15
           Min Color: 0; 0; 0
           Min Intensity: 0
           Name: ClusteredConveyors
@@ -371,60 +305,26 @@ Visualization Manager:
         - Alpha: 1
           Autocompute Intensity Bounds: true
           Autocompute Value Bounds:
-            Max Value: 10
-            Min Value: -10
+            Max Value: 0.6902469396591187
+            Min Value: 0.10332107543945312
             Value: true
           Axis: Z
-          Channel Name: intensity
+          Channel Name: label
           Class: rviz_default_plugins/PointCloud2
-          Color: 255; 255; 255
+          Color: 165; 29; 45
           Color Transformer: Intensity
           Decay Time: 0
           Enabled: false
           Invert Rainbow: false
           Max Color: 255; 255; 255
-          Max Intensity: 4096
-          Min Color: 0; 0; 0
-          Min Intensity: 0
-          Name: PointCloud2
-          Position Transformer: XYZ
-          Selectable: true
-          Size (Pixels): 3
-          Size (m): 0.009999999776482582
-          Style: Flat Squares
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            Filter size: 10
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /inz/ground_filtered
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: false
-        - Alpha: 1
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 0.6902469396591187
-            Min Value: 0.10332107543945312
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz_default_plugins/PointCloud2
-          Color: 165; 29; 45
-          Color Transformer: FlatColor
-          Decay Time: 0
-          Enabled: false
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Max Intensity: 4096
+          Max Intensity: 10
           Min Color: 0; 0; 0
           Min Intensity: 0
           Name: Forward Filter
           Position Transformer: XYZ
           Selectable: true
           Size (Pixels): 3
-          Size (m): 0.009999999776482582
+          Size (m): 0.019999999552965164
           Style: Flat Squares
           Topic:
             Depth: 5
@@ -443,22 +343,22 @@ Visualization Manager:
             Min Value: -10
             Value: true
           Axis: Z
-          Channel Name: intensity
+          Channel Name: ring
           Class: rviz_default_plugins/PointCloud2
           Color: 255; 255; 255
-          Color Transformer: FlatColor
+          Color Transformer: Intensity
           Decay Time: 0
-          Enabled: true
+          Enabled: false
           Invert Rainbow: false
           Max Color: 255; 255; 255
-          Max Intensity: 0
+          Max Intensity: 15
           Min Color: 0; 0; 0
           Min Intensity: 0
           Name: TopFilter
           Position Transformer: XYZ
           Selectable: false
           Size (Pixels): 3
-          Size (m): 0.009999999776482582
+          Size (m): 0.019999999552965164
           Style: Flat Squares
           Topic:
             Depth: 5
@@ -469,7 +369,7 @@ Visualization Manager:
             Value: /inz/top_hist_filtered_pub_
           Use Fixed Frame: true
           Use rainbow: true
-          Value: true
+          Value: false
         - Alpha: 1
           Autocompute Intensity Bounds: true
           Autocompute Value Bounds:
@@ -477,22 +377,22 @@ Visualization Manager:
             Min Value: -10
             Value: true
           Axis: Z
-          Channel Name: intensity
+          Channel Name: ring
           Class: rviz_default_plugins/PointCloud2
-          Color: 255; 255; 255
+          Color: 46; 194; 126
           Color Transformer: Intensity
           Decay Time: 0
           Enabled: false
           Invert Rainbow: false
           Max Color: 255; 255; 255
-          Max Intensity: 4096
+          Max Intensity: 15
           Min Color: 0; 0; 0
           Min Intensity: 0
           Name: MergedDensities
           Position Transformer: XYZ
           Selectable: true
           Size (Pixels): 3
-          Size (m): 0.009999999776482582
+          Size (m): 0.019999999552965164
           Style: Flat Squares
           Topic:
             Depth: 5
@@ -511,22 +411,22 @@ Visualization Manager:
             Min Value: -10
             Value: true
           Axis: Z
-          Channel Name: intensity
+          Channel Name: label
           Class: rviz_default_plugins/PointCloud2
           Color: 255; 255; 255
           Color Transformer: Intensity
           Decay Time: 0
-          Enabled: false
+          Enabled: true
           Invert Rainbow: false
           Max Color: 255; 255; 255
-          Max Intensity: 50
+          Max Intensity: 40
           Min Color: 0; 0; 0
           Min Intensity: 0
-          Name: ClusteredBBoxes
+          Name: ClusteredSupportsCandidates
           Position Transformer: XYZ
           Selectable: true
           Size (Pixels): 3
-          Size (m): 0.009999999776482582
+          Size (m): 0.019999999552965164
           Style: Flat Squares
           Topic:
             Depth: 5
@@ -534,50 +434,16 @@ Visualization Manager:
             Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /inz/only_legs
+            Value: /inz/clustered_supports_candidates
           Use Fixed Frame: true
           Use rainbow: true
-          Value: false
-        - Alpha: 1
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 10
-            Min Value: -10
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz_default_plugins/PointCloud2
-          Color: 255; 255; 255
-          Color Transformer: Intensity
-          Decay Time: 0
-          Enabled: false
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Max Intensity: 10
-          Min Color: 0; 0; 0
-          Min Intensity: 0
-          Name: ClusteredLegs
-          Position Transformer: XYZ
-          Selectable: true
-          Size (Pixels): 3
-          Size (m): 0.05000000074505806
-          Style: Flat Squares
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            Filter size: 10
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /inz/clustered
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: false
+          Value: true
       Enabled: true
       Name: INZ_PDs
     - Class: rviz_common/Group
       Displays:
         - Class: rviz_default_plugins/Image
-          Enabled: false
+          Enabled: true
           Max Value: 1
           Median window: 5
           Min Value: 0
@@ -588,10 +454,10 @@ Visualization Manager:
             Durability Policy: Volatile
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /inz/forward_desity_histogram
-          Value: false
+            Value: /inz/forward_density_histogram
+          Value: true
         - Class: rviz_default_plugins/Image
-          Enabled: false
+          Enabled: true
           Max Value: 1
           Median window: 5
           Min Value: 0
@@ -602,10 +468,10 @@ Visualization Manager:
             Durability Policy: Volatile
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /inz/forward_desity_clustered_histogram
-          Value: false
+            Value: /inz/forward_density_clustered_histogram
+          Value: true
         - Class: rviz_default_plugins/Image
-          Enabled: true
+          Enabled: false
           Max Value: 1
           Median window: 5
           Min Value: 0
@@ -616,8 +482,8 @@ Visualization Manager:
             Durability Policy: Volatile
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /inz/ground_desity_histogram
-          Value: true
+            Value: /inz/ground_density_histogram
+          Value: false
         - Class: rviz_default_plugins/Image
           Enabled: false
           Max Value: 1
@@ -630,10 +496,10 @@ Visualization Manager:
             Durability Policy: Volatile
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /inz/ground_desity_multiplied_histogram
+            Value: /inz/ground_density_multiplied_histogram
           Value: false
         - Class: rviz_default_plugins/Image
-          Enabled: true
+          Enabled: false
           Max Value: 1
           Median window: 5
           Min Value: 0
@@ -644,8 +510,8 @@ Visualization Manager:
             Durability Policy: Volatile
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /inz/ground_desity_clustered_histogram
-          Value: true
+            Value: /inz/ground_density_clustered_histogram
+          Value: false
       Enabled: true
       Name: INZ_HISs
     - Class: rviz_common/Group
@@ -713,11 +579,11 @@ Visualization Manager:
         - Alpha: 1
           Class: vision_msgs_rviz_plugins/Detection3DArray
           ConfigPath: ""
-          Enabled: true
+          Enabled: false
           Line Width: 0.009999999776482582
           Name: ConveyorsDetection
           Namespaces:
-            score: true
+            {}
           Only Edge: true
           Show Score: true
           Topic:
@@ -726,7 +592,7 @@ Visualization Manager:
             History Policy: Keep Last
             Reliability Policy: Reliable
             Value: /inz/detected_conveyors
-          Value: true
+          Value: false
       Enabled: true
       Name: INZ_Markers
   Enabled: true
@@ -775,25 +641,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 7.797307968139648
+      Distance: 2.6899094581604004
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 1.5171194076538086
-        Y: 0.48901355266571045
-        Z: 2.0347492694854736
+        X: 1.3648755550384521
+        Y: 0.49451619386672974
+        Z: 0.05403777211904526
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.6347964406013489
+      Pitch: 0.4397975206375122
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 3.779419422149658
+      Yaw: 3.6294314861297607
     Saved: ~
 Window Geometry:
   ColorCamera:
@@ -804,12 +670,12 @@ Window Geometry:
     collapsed: false
   ForwardProged:
     collapsed: false
-  Height: 1043
+  Height: 1009
   Hide Left Dock: false
   Hide Right Dock: false
   Navigation 2:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd00000004000000000000033e00000364fc0200000024fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006e00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c0061007900730100000047000000f7000000f100fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb000000160043006f006c006f007200430061006d0065007200610100000145000000300000002f00fffffffb0000000c00430061006d00650072006100000002ac000000eb0000000000000000fb0000000c00430061006d00650072006100000002d0000000c70000000000000000fb0000000c00430061006d00650072006101000002d0000000c70000000000000000fb0000000c00430061006d00650072006101000002d0000000c70000000000000000fb0000000a0049006d006100670065000000017a0000020f0000000000000000fb0000000a0049006d0061006700650000000233000000c70000000000000000fb0000000a0049006d00610067006500000002d0000000c70000000000000000fb0000000a0049006d00610067006501000002f7000000a00000000000000000fb0000000a0049006d00610067006500000001e5000001b20000000000000000fb0000000a0049006d00610067006501000002d0000000c70000000000000000fb0000000a0049006d00610067006501000002ea000000c80000000000000000fb0000000a0049006d006100670065000000032b000000870000000000000000fb0000000c00430061006d00650072006101000002ad000001050000000000000000fb0000000c00430061006d00650072006100000002d0000000c70000000000000000fb0000000c00430061006d00650072006100000001d5000001c20000000000000000fb00000018004e0061007600690067006100740069006f006e00200032000000025e000001390000017100fffffffb0000000a0049006d00610067006500000002d0000000c70000000000000000fb0000000a0049006d0061006700650100000308000000810000000000000000fb0000001a0054006800650072006d0061006c00430061006d006500720061000000033e0000004b0000002f00fffffffb0000000c00430061006d00650072006100000002a3000000e60000000000000000fb0000000a0049006d0061006700650100000261000001280000000000000000fb0000001a0046006f0072007700610072006400500072006f006700650064000000033e0000004b0000002f00fffffffb0000000e0046006f00720077006100720064000000031d0000006c0000002f00fffffffb0000000a0049006d00610067006501000002c2000000c70000000000000000fb000000120054006f007000500072006f006700650064010000017c000000cc0000002f00fffffffb000000060054006f0070010000024f0000015c0000002f00fffffffb000000200054006f0070004500780070004d0075006c007400690070006c00690065006400000002dc000000cf0000002f00ffffff000000010000010b00000364fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073010000004700000364000000c200fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000078000000040fc0100000002fb0000000800540069006d00650100000000000007800000038100fffffffb0000000800540069006d00650100000000000004500000000000000000000003290000036400000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000004000000000000018300000342fc0200000024fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006e00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c0061007900730100000047000001a9000000f100fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb000000160043006f006c006f007200430061006d006500720061000000031e0000008d0000002f00fffffffb0000000c00430061006d00650072006100000002ac000000eb0000000000000000fb0000000c00430061006d00650072006100000002d0000000c70000000000000000fb0000000c00430061006d00650072006101000002d0000000c70000000000000000fb0000000c00430061006d00650072006101000002d0000000c70000000000000000fb0000000a0049006d006100670065000000017a0000020f0000000000000000fb0000000a0049006d0061006700650000000233000000c70000000000000000fb0000000a0049006d00610067006500000002d0000000c70000000000000000fb0000000a0049006d00610067006501000002f7000000a00000000000000000fb0000000a0049006d00610067006500000001e5000001b20000000000000000fb0000000a0049006d00610067006501000002d0000000c70000000000000000fb0000000a0049006d00610067006501000002ea000000c80000000000000000fb0000000a0049006d006100670065000000032b000000870000000000000000fb0000000c00430061006d00650072006101000002ad000001050000000000000000fb0000000c00430061006d00650072006100000002d0000000c70000000000000000fb0000000c00430061006d00650072006100000001d5000001c20000000000000000fb00000018004e0061007600690067006100740069006f006e00200032000000025e000001390000017100fffffffb0000000a0049006d00610067006500000002d0000000c70000000000000000fb0000000a0049006d0061006700650100000308000000810000000000000000fb0000001a0054006800650072006d0061006c00430061006d006500720061000000033e0000004b0000002f00fffffffb0000000c00430061006d00650072006100000002a3000000e60000000000000000fb0000000a0049006d0061006700650100000261000001280000000000000000fb0000001a0046006f0072007700610072006400500072006f00670065006401000001f7000000cb0000002f00fffffffb0000000e0046006f0072007700610072006401000002c9000000c00000002f00fffffffb0000000a0049006d00610067006501000002c2000000c70000000000000000fb000000120054006f007000500072006f006700650064000000017c000000cc0000002f00fffffffb000000060054006f007000000001dd000001ce0000002f00fffffffb000000200054006f0070004500780070004d0075006c007400690070006c00690065006400000002dc000000cf0000002f00ffffff000000010000010200000342fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000004700000342000000c200fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000039d00000040fc0100000002fb0000000800540069006d006501000000000000039d0000038100fffffffb0000000800540069006d00650100000000000004500000000000000000000002130000034200000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   ThermalCamera:
@@ -826,6 +692,6 @@ Window Geometry:
     collapsed: false
   Views:
     collapsed: false
-  Width: 1920
-  X: 1920
-  Y: 0
+  Width: 925
+  X: 995
+  Y: 34

@@ -1,3 +1,5 @@
+#define PCL_NO_PRECOMPILE
+
 #include "objects_detection/utils.hpp"
 #include "pcl/io/pcd_io.h"
 #include "pcl/point_cloud.h"
@@ -23,7 +25,7 @@ class PointCloudListener : public rclcpp::Node {
 
     void pointcloud_callback(const rclcppCloudSharedPtr msg) {
         // Konwersja PointCloud2 do chmury punktów PCL
-        auto cloud{convert_point_cloud2_to_cloud_ptr(msg)};
+        auto cloud{pcl::conconvert_point_cloud2_to_cloud_ptr(msg)};
         pcl::PCDWriter writer;
         const auto dest_file_name_temp = dest_file_name_ + "_" + std::to_string(count) + ".pcd";
         writer.write<Point>(dest_file_name_temp, *cloud);

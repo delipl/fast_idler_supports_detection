@@ -1,4 +1,5 @@
 #pragma once
+#define PCL_NO_PRECOMPILE
 
 #include <chrono>
 #include <fstream>
@@ -34,6 +35,7 @@
 
 #include <objects_detection/cluster_extraction.hpp>
 #include <objects_detection/utils.hpp>
+#include <objects_detection/pcl_utils.hpp>
 
 using namespace std::chrono_literals;
 
@@ -92,7 +94,7 @@ class ObjectDetection : public rclcpp::Node {
     rclcpp::Publisher<rclcppCloud>::SharedPtr outlier_removal_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr forward_hist_filtered_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr top_hist_filtered_pub_;
-    rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_pub_;
+    rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_supports_candidates_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_conveyors_candidates_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_conveyor_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr only_legs_pub_;
@@ -111,23 +113,22 @@ class ObjectDetection : public rclcpp::Node {
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr ground_density_histogram_multiplied_pub_;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr ground_density_clustered_histogram_pub_;
 
-    ClusterExtraction clusteler;
+    ClusterExtraction supports_candidates_clusteler;
     ClusterExtraction conveyor_candidates_clusteler;
 
     CloudPtr remove_points_beyond_tunnel(CloudPtr cloud);
-    CloudPtr filter_with_density_on_x_image(CloudPtr cloud, const Histogram &histogram);
-    CloudPtr filter_with_density_on_z_image(CloudPtr cloud, const Histogram &histogram);
-    CloudPtr remove_far_points_from_ros2bag_converter_bug(CloudPtr cloud, double max_distance);
-    CloudPtr merge_clouds_and_remove_simillar_points(CloudPtrs clouds, double eps);
-    std::pair<CloudPtr, CloudPtr> filter_ground_and_get_normal_and_height(CloudPtr cloud, int sac_model, int iterations,
+    CloudIRLPtr filter_with_density_on_x_image(CloudIRLPtr cloud, const Histogram &histogram);
+    CloudIRLPtr filter_with_density_on_z_image(CloudIRLPtr cloud, const Histogram &histogram);
+    // CloudIRPtr remove_far_points_from_ros2bag_converter_bug(CloudIRPtr cloud, double max_distance);
+    std::pair<CloudIRPtr, CloudIRPtr> filter_ground_and_get_normal_and_height(CloudIRPtr cloud, int sac_model, int iterations,
                                                                           double radius, Eigen::Vector3d &normal,
                                                                           double &ground_height, double eps = 0);
     CloudPtr remove_right_points(CloudPtr cloud);
-    CloudPtr align_to_normal(CloudPtr cloud, const Eigen::Vector3d &normal, double ground_height);
+    CloudIRPtr align_to_normal(CloudIRPtr cloud, const Eigen::Vector3d &normal, double ground_height);
 
     CloudPtr get_points_from_bounding_boxes(CloudPtr cloud, BoundingBoxArrayPtr boxes);
 
-    Histogram create_histogram(CloudPtr cloud, double resolution);
+    Histogram create_histogram(CloudIRLPtr cloud, double resolution);
     Histogram remove_low_density_columns(const Histogram &histogram, std::size_t threshold);
     Histogram threshold_histogram(const Histogram &histogram, std::size_t min, std::size_t max);
     Histogram segment_local_peeks(const Histogram &histogram, std::size_t slope, std::size_t range = 1);
@@ -136,10 +137,10 @@ class ObjectDetection : public rclcpp::Node {
     sensor_msgs::msg::Image create_image_from_histogram(const Histogram &histogram);
 
     MarkersPtr make_markers_from_ellipsoids_infos(const std::list<EllipsoidInfo> &ellipsoids_infos);
-    BoundingBoxArrayPtr make_bounding_boxes_from_pointclouds(const CloudIPtrs &clustered_clouds,
+    BoundingBoxArrayPtr make_bounding_boxes_from_pointclouds(const CloudIRLPtrs &clustered_clouds,
                                                              const std::string &frame_name);
     vision_msgs::msg::ObjectHypothesisWithPose score_conveyor(const vision_msgs::msg::BoundingBox3D bbox);
-    Detection3DArrayPtr detect_conveyors(const CloudIPtrs &clustered_clouds,
+    Detection3DArrayPtr detect_conveyors(const CloudIRLPtrs &clustered_clouds,
                                                              const std::string &frame_name);
     void save_densities_to_file(const std::vector<std::size_t> &densities, const std::string &path);
 
