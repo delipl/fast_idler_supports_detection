@@ -90,27 +90,21 @@ class ObjectDetection : public rclcpp::Node {
     rclcpp::Publisher<rclcppCloud>::SharedPtr ground_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr without_ground_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr transformed_pub_;
-    rclcpp::Publisher<rclcppCloud>::SharedPtr tunneled_pub_;
-    rclcpp::Publisher<rclcppCloud>::SharedPtr outlier_removal_pub_;
+    rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_conveyors_candidates_pub_;
+    rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_conveyors_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr forward_hist_filtered_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr top_hist_filtered_pub_;
-    rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_supports_candidates_pub_;
-    rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_conveyors_candidates_pub_;
-    rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_conveyor_pub_;
-    rclcpp::Publisher<rclcppCloud>::SharedPtr only_legs_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr merged_density_clouds_pub_;
-    rclcpp::Publisher<rclcppCloud>::SharedPtr plane_filter_pub_;
+    rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_supports_candidates_pub_;
+    rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_supports_candidates_base_link_pub_;
 
-    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr markers_pub_;
-    rclcpp::Publisher<vision_msgs::msg::BoundingBox3DArray>::SharedPtr conveyors_candidates_bounding_box_pub_;
-    rclcpp::Publisher<vision_msgs::msg::BoundingBox3DArray>::SharedPtr conveyors_bounding_box_pub_;
-    rclcpp::Publisher<vision_msgs::msg::BoundingBox3DArray>::SharedPtr bounding_box_pub_;
-    rclcpp::Publisher<vision_msgs::msg::Detection3DArray>::SharedPtr detection_3d_pub_;
+    rclcpp::Publisher<vision_msgs::msg::Detection3DArray>::SharedPtr conveyors_detection_3d_pub_;
+    rclcpp::Publisher<vision_msgs::msg::Detection3DArray>::SharedPtr supports_detection_3d_pub_;
+    rclcpp::Publisher<vision_msgs::msg::Detection3DArray>::SharedPtr supports_detection_base_link_3d_pub_;
 
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr forward_density_histogram_pub_;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr forward_density_clustered_histogram_pub_;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr ground_density_histogram_pub_;
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr ground_density_histogram_multiplied_pub_;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr ground_density_clustered_histogram_pub_;
 
     ClusterExtraction supports_candidates_clusteler;
@@ -119,12 +113,11 @@ class ObjectDetection : public rclcpp::Node {
     CloudPtr remove_points_beyond_tunnel(CloudPtr cloud);
     CloudIRLPtr filter_with_density_on_x_image(CloudIRLPtr cloud, const Histogram &histogram);
     CloudIRLPtr filter_with_density_on_z_image(CloudIRLPtr cloud, const Histogram &histogram);
-    // CloudIRPtr remove_far_points_from_ros2bag_converter_bug(CloudIRPtr cloud, double max_distance);
     std::pair<CloudIRPtr, CloudIRPtr> filter_ground_and_get_normal_and_height(CloudIRPtr cloud, int sac_model, int iterations,
                                                                           double radius, Eigen::Vector3d &normal,
                                                                           double &ground_height, double eps = 0);
-    CloudPtr remove_right_points(CloudPtr cloud);
-    CloudIRPtr align_to_normal(CloudIRPtr cloud, const Eigen::Vector3d &normal, double ground_height);
+
+    CloudIRPtr align_to_normal(CloudIRPtr cloud, const Eigen::Vector3d &normal, double ground_height, Eigen::Vector3d &rpy);
 
     CloudPtr get_points_from_bounding_boxes(CloudPtr cloud, BoundingBoxArrayPtr boxes);
 
@@ -133,7 +126,6 @@ class ObjectDetection : public rclcpp::Node {
     Histogram threshold_histogram(const Histogram &histogram, std::size_t min, std::size_t max);
     Histogram segment_local_peeks(const Histogram &histogram, std::size_t slope, std::size_t range = 1);
 
-    void save_histogram_to_file(const Histogram &histogram, const std::string &file_name);
     sensor_msgs::msg::Image create_image_from_histogram(const Histogram &histogram);
 
     MarkersPtr make_markers_from_ellipsoids_infos(const std::list<EllipsoidInfo> &ellipsoids_infos);
@@ -142,20 +134,21 @@ class ObjectDetection : public rclcpp::Node {
     vision_msgs::msg::ObjectHypothesisWithPose score_conveyor(const vision_msgs::msg::BoundingBox3D bbox);
     Detection3DArrayPtr detect_conveyors(const CloudIRLPtrs &clustered_clouds,
                                                              const std::string &frame_name);
-    void save_densities_to_file(const std::vector<std::size_t> &densities, const std::string &path);
+    Detection3DArrayPtr detect_supports(const CloudIRLPtrs &clustered_clouds,
+                                                             const std::string &frame_name);
 
-    std::list<EllipsoidInfo> classificate(const std::list<EllipsoidInfo> &ellipsoids_infos);
     EllipsoidInfo get_ellipsoid_and_center(CloudIPtr cloud);
     void save_data_to_yaml(const std::list<EllipsoidInfo> &ellipsoids_infos);
-
 
     void clear_markers(const std::string &frame_name);
     std::string filename;
 
     int64_t normalization_duration_count;
+    int64_t conveyor_clusterization_duration_count;
+    int64_t conveyor_classification_duration_count;
     int64_t density_segmentation_duration_count;
-    int64_t clusterization_duration_count;
-    int64_t classification_duration_count;
+    int64_t supports_clusterization_duration_count;
+    int64_t supports_classification_duration_count;
     int64_t estimation_duration_count;
 
     std::size_t original_points_count;
