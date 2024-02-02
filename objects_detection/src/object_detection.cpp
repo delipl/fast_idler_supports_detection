@@ -261,7 +261,7 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
 
     // TODO: create function remove label
     auto pc2 = std::make_shared<sensor_msgs::msg::PointCloud2>(
-        pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(merged_density_cloud, frame, this));
+        pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(high_density_top_cloud, frame, this));
     auto top_cloud = pcl_utils::convert_point_cloud2_to_cloud_ptr<PointIR>(pc2);
 
     auto clustered_supports_candidates = supports_candidates_clusteler.euclidean(top_cloud);
@@ -601,19 +601,13 @@ Detection3DArrayPtr ObjectDetection::detect_supports(const CloudIRLPtrs& cluster
         vision_msgs::msg::ObjectHypothesisWithPose object;
         // The bottom of the support is not in range
         if (point_with_min_z.ring == 0) {
-            const auto height = point_with_max_z.z - point_with_min_z.z;
-            const auto real_height_in_range = support_height - point_with_min_z.z;
+            const auto max_point_z_error = std::abs(point_with_max_z.z - support_height) / support_height;
+            object.hypothesis.score = 1.0 - max_point_z_error;
 
-            const auto height_error = std::abs(height - real_height_in_range) / real_height_in_range;
-            object.hypothesis.score = 1.0 - height_error;
-
-            // The top of the support is not in range
+        // The top of the support is not in range
         } else if (point_with_max_z.ring == 15) {
-            const auto height = point_with_max_z.z - point_with_min_z.z;
-            const auto real_height_in_range = point_with_max_z.z;
-
-            const auto height_error = std::abs(height - real_height_in_range) / real_height_in_range;
-            object.hypothesis.score = 1.0 - height_error;
+            const auto min_point_z_error = std::abs(point_with_min_z.z - ground_level_height) / ground_level_height;
+            object.hypothesis.score = 1.0 - min_point_z_error;
 
             // Whole support in the range
         } else {
