@@ -96,6 +96,7 @@ class ObjectDetection : public rclcpp::Node {
     rclcpp::Publisher<rclcppCloud>::SharedPtr top_hist_filtered_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr merged_density_clouds_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_supports_candidates_pub_;
+    rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_supports_candidates_velodyne_pub_;
     rclcpp::Publisher<rclcppCloud>::SharedPtr clustered_supports_candidates_base_link_pub_;
 
     rclcpp::Publisher<vision_msgs::msg::Detection3DArray>::SharedPtr conveyors_detection_3d_pub_;
@@ -138,7 +139,7 @@ class ObjectDetection : public rclcpp::Node {
                                                              const std::string &frame_name);
 
     EllipsoidInfo get_ellipsoid_and_center(CloudIPtr cloud);
-    void save_data_to_yaml(const std::list<EllipsoidInfo> &ellipsoids_infos);
+    void save_data_to_yaml(const sensor_msgs::msg::PointCloud2::Ptr &msg, CloudIRLPtrs clouds, Detection3DArrayPtr detections);
 
     void clear_markers(const std::string &frame_name);
     std::string filename;

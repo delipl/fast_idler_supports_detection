@@ -103,8 +103,10 @@ void ObjectDetection::create_rclcpp_instances() {
     clustered_supports_candidates_pub_ =
         create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered_supports_candidates", 10);
     merged_density_clouds_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/merged_density_clouds", 10);
+    clustered_supports_candidates_velodyne_pub_ =
+        create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered_supports_candidates_velodyne", 10);
     clustered_supports_candidates_base_link_pub_ =
-        create_publisher<sensor_msgs::msg::PointCloud2>("inz/classified_supports", 10);
+        create_publisher<sensor_msgs::msg::PointCloud2>("inz/clustered_supports_candidates_base_link", 10);
 
     conveyors_detection_3d_pub_ = create_publisher<vision_msgs::msg::Detection3DArray>("inz/conveyors_detection", 10);
     supports_detection_3d_pub_ = create_publisher<vision_msgs::msg::Detection3DArray>("inz/supports_detection", 10);
@@ -202,8 +204,9 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     }
 
     auto conveyors_classification_end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration_cast<std::chrono::microseconds>(conveyors_classification_end - conveyors_classification_start)
-        .count();
+    conveyor_classification_duration_count = std::chrono::duration_cast<std::chrono::microseconds>(
+                                                 conveyors_classification_end - conveyors_classification_start)
+                                                 .count();
 
     if (not clustered_conveyors.size()) {
         RCLCPP_WARN(get_logger(), "Cannot find any conveyor! Skipping pointcloud");
@@ -291,10 +294,15 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     // ============================================
     auto estimation_start = std::chrono::high_resolution_clock::now();
 
-    auto base_link_cloud = pcl_utils::translate<pcl::PointXYZIRL>(merged_supports_candidates, 0, 0, -ground_height);
-    auto translated = pcl_utils::rotate<pcl::PointXYZIRL>(base_link_cloud, -rpy[0], -rpy[1], -rpy[2] - 0.06);
-
-    // Move to baselink
+    CloudIRLPtrs base_linked_clouds;
+    for (const auto& cloud : clustered_supports_candidates) {
+        auto to_velodyne = pcl_utils::translate<pcl::PointXYZIRL>(cloud, 0, 0, -ground_height);
+        auto to_velodyne_rotated = pcl_utils::rotate<pcl::PointXYZIRL>(to_velodyne, -rpy[0], -rpy[1], -rpy[2] - 0.06);
+        auto to_base_link_rotated = pcl_utils::rotate<pcl::PointXYZIRL>(to_velodyne_rotated, 0, 0.454, 0);
+        auto to_base_link = pcl_utils::translate<pcl::PointXYZIRL>(to_base_link_rotated, 0.410, 0, 1.350);
+        base_linked_clouds.push_back(to_base_link);
+    }
+    auto base_linked = pcl_utils::merge_clouds<PointIRL>(base_linked_clouds);
 
     auto estimation_end = std::chrono::high_resolution_clock::now();
     estimation_duration_count =
@@ -329,8 +337,18 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
         pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(merged_supports_candidates, frame, this));
     supports_detection_3d_pub_->publish(*supports_candidates_detection_3d_msg);
 
+    // clustered_supports_candidates_velodyne_pub_->publish(
+    //     pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(to_velodyne_rotated, frame, this));
     clustered_supports_candidates_base_link_pub_->publish(
-        pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(translated, frame, this));
+        pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(base_linked, "base_link", this));
+
+    save_data_to_yaml(msg, base_linked_clouds, supports_candidates_detection_3d_msg);
+
+    auto end = std::chrono::high_resolution_clock::now();
+    auto count =
+        std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+
+    RCLCPP_INFO_STREAM(get_logger(), "Callback took: " <<  count / 10e6);
 }
 
 void ObjectDetection::clear_markers(const std::string& frame_name) {
@@ -598,31 +616,40 @@ Detection3DArrayPtr ObjectDetection::detect_supports(const CloudIRLPtrs& cluster
             class_name = "support_0_7m";
         }
 
-        vision_msgs::msg::ObjectHypothesisWithPose object;
-        // The bottom of the support is not in range
+        vision_msgs::msg::ObjectHypothesisWithPose support_object;
+        vision_msgs::msg::ObjectHypothesisWithPose top_object;
+        vision_msgs::msg::ObjectHypothesisWithPose bottom_object;
+        double top_score = 1.0;
+        double bottom_score = 1.0;
+
         if (point_with_min_z.ring == 0) {
-            const auto max_point_z_error = std::abs(point_with_max_z.z - support_height) / support_height;
-            object.hypothesis.score = 1.0 - max_point_z_error;
-
-        // The top of the support is not in range
+            // The bottom of the support is not in range
+            top_score = std::abs(point_with_max_z.z - support_height) / 0.1;
         } else if (point_with_max_z.ring == 15) {
-            const auto min_point_z_error = std::abs(point_with_min_z.z - ground_level_height) / ground_level_height;
-            object.hypothesis.score = 1.0 - min_point_z_error;
+            // The top of the support is not in range
+            bottom_score = std::abs(point_with_min_z.z - ground_level_height) / 0.1;
 
-            // Whole support in the range
         } else {
-            const auto height = point_with_max_z.z - point_with_min_z.z + ground_level_height;
-            const auto height_error = std::abs(height - support_height) / support_height;
-
-            object.hypothesis.score = 1.0 - height_error;
+            // Whole support in range
+            top_score = std::abs(point_with_max_z.z - support_height) / 0.1;
+            bottom_score = std::abs(point_with_min_z.z - ground_level_height) / 0.1;
         }
 
-        if (object.hypothesis.score > 1.0 or object.hypothesis.score < 0.0) {
-            object.hypothesis.score = 0.0;
-        }
+        top_score = std::clamp(top_score, 0.0, 1.0);
+        bottom_score = std::clamp(bottom_score, 0.0, 1.0);
 
-        object.hypothesis.class_id = class_name;
-        detection.results.push_back(object);
+        support_object.hypothesis.score = 1.0 - top_score * bottom_score;
+        top_object.hypothesis.score = 1.0 - top_score;
+        bottom_object.hypothesis.score = 1.0 - bottom_score;
+
+
+        support_object.hypothesis.class_id = class_name;
+        top_object.hypothesis.class_id = class_name + "/top";
+        bottom_object.hypothesis.class_id = class_name + "/bottom";
+
+        detection.results.push_back(support_object);
+        detection.results.push_back(top_object);
+        detection.results.push_back(bottom_object);
 
         detections->detections.push_back(detection);
     }
@@ -710,31 +737,68 @@ ObjectDetection::EllipsoidInfo ObjectDetection::get_ellipsoid_and_center(CloudIP
     return {ellipsoid, center, "unknown"};
 }
 
-void ObjectDetection::save_data_to_yaml(const std::list<EllipsoidInfo>& ellipsoids_infos) {
+void ObjectDetection::save_data_to_yaml(const sensor_msgs::msg::PointCloud2::Ptr& msg, CloudIRLPtrs clouds, Detection3DArrayPtr detections) {
     YAML::Node frame_node;
     YAML::Node yaml_node;
     std::size_t detected_count;
-    frame_node["time"] = rclcpp::Clock{}.now().seconds();
-    for (const auto& info : ellipsoids_infos) {
-        YAML::Node ellipsoidNode;
-        ellipsoidNode["position"]["x"] = info.center.x;
-        ellipsoidNode["position"]["y"] = info.center.y;
-        ellipsoidNode["position"]["z"] = info.center.z;
+    for (auto i = 0u; i < clouds.size(); ++i) {
+        YAML::Node object_node;
 
-        ellipsoidNode["major_axes"]["x"] = info.radiuses.radius_x;
-        ellipsoidNode["major_axes"]["y"] = info.radiuses.radius_y;
-        ellipsoidNode["major_axes"]["z"] = info.radiuses.radius_z;
+        float min_x = std::numeric_limits<float>::max();
+        float min_y = std::numeric_limits<float>::max();
+        float min_z = std::numeric_limits<float>::max();
+        float max_x = -std::numeric_limits<float>::max();
+        float max_y = -std::numeric_limits<float>::max();
+        float max_z = -std::numeric_limits<float>::max();
+        float mean_point_x = 0;
+        float mean_point_y = 0;
+        float mean_point_z = 0;
+        for (auto const& point : clouds[i]->points) {
+            min_x = std::min(min_x, point.x);
+            min_y = std::min(min_y, point.y);
+            min_z = std::min(min_z, point.z);
+            max_x = std::max(max_x, point.x);
+            max_y = std::max(max_y, point.y);
+            max_z = std::max(max_z, point.z);
+            mean_point_x += point.x;
+            mean_point_y += point.y;
+            mean_point_z += point.z;
 
-        ellipsoidNode["class"] = info.class_name;
-        if (info.class_name != "unknown") {
-            ++detected_count;
+            YAML::Node point_node;
+            point_node["x"] = point.x;
+            point_node["y"] = point.y;
+            point_node["z"] = point.z;
+            point_node["intensity"] = point.intensity;
+            point_node["ring"] = point.ring;
+            object_node["points"].push_back(point_node);
         }
 
-        frame_node["detected_ellipsoids"].push_back(ellipsoidNode);
-    }
-    std::ofstream file(filename, std::ios::app);
+        mean_point_x /= clouds[i]->size();
+        mean_point_y /= clouds[i]->size();
+        mean_point_z /= clouds[i]->size();
 
-    auto start = std::chrono::high_resolution_clock::now();
+        object_node["box_size"]["x"] = max_x - min_x;
+        object_node["box_size"]["y"] = max_y - min_y;
+        object_node["box_size"]["z"] = max_z - min_z;
+
+        object_node["box_center"]["x"] = min_x + (max_x - min_x) / 2.0;
+        object_node["box_center"]["y"] = min_y + (max_y - min_y) / 2.0;
+        object_node["box_center"]["z"] = min_z + (max_z - min_z) / 2.0;
+
+        object_node["frame_id"] = "base_link";
+
+        object_node["mean_point"]["x"] = mean_point_x;
+        object_node["mean_point"]["y"] = mean_point_y;
+        object_node["mean_point"]["z"] = mean_point_z;
+
+        object_node["score"] = detections->detections[i].results[0].hypothesis.score;
+        object_node["score_bottom"] = detections->detections[i].results[1].hypothesis.score;
+        object_node["score_top"] = detections->detections[i].results[2].hypothesis.score;
+
+        frame_node["objects"].push_back(object_node);
+    }
+    frame_node["timestamp"]["sec"] = msg->header.stamp.sec;
+    frame_node["timestamp"]["nanosec"] = msg->header.stamp.nanosec;
 
     frame_node["durations"]["normalization"] = normalization_duration_count / 10e6;
     frame_node["durations"]["conveyor_clusterization"] = conveyor_clusterization_duration_count / 10e6;
@@ -750,12 +814,11 @@ void ObjectDetection::save_data_to_yaml(const std::list<EllipsoidInfo>& ellipsoi
 
     frame_node["durations"]["processing"] = processing_duration / 10e6;
 
-    frame_node["filters_point_sizes"]["original"] = original_points_count;
-    frame_node["filters_point_sizes"]["5m_filter"] = filter_further_than_5m_points_count;
-    frame_node["filters_point_sizes"]["ground_filter"] = filter_ground_points_count;
-    frame_node["filters_point_sizes"]["roi"] = roi_points_count;
-
     yaml_node.push_back(frame_node);
+
+    auto start = std::chrono::high_resolution_clock::now();
+    std::ofstream file(filename, std::ios::app);
+
     if (file.is_open()) {
         file << yaml_node << std::endl;
         auto end = std::chrono::high_resolution_clock::now();
