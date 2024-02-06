@@ -13,6 +13,7 @@ def plot_3D(title: str, cloud: np.array, cloud1: np.array):
     x = cloud[:, 0]
     y = cloud[:, 1]
     z = cloud[:, 2]
+    ll = cloud[:, 4]
     i = np.array([])
     try:
         i = cloud[:, 3]
@@ -67,7 +68,7 @@ def plot_3D(title: str, cloud: np.array, cloud1: np.array):
         z,
         s=[0.8 for _ in range(len(x))],
         # c="b",
-        c=1 - z,
+        c=ll,
         marker="o",
         alpha=1,
         depthshade=False,

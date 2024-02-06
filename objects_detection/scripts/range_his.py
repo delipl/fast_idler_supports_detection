@@ -71,7 +71,7 @@ def show_2D_XY_histogram(resolution=0.1, width=2.0, height=2.0):
                 origin_points[1][0], origin_points[1][1], origin_points[1][2]
             )
             degrees_min = math.degrees(sphere_min_config[2]) - offset + 90
-            degrees_max = math.degrees(sphere_max_config[2]) - offset + 90 
+            degrees_max = math.degrees(sphere_max_config[2]) - offset + 90
 
             if degrees_min > -fov and degrees_max < fov:
                 intensity = 1

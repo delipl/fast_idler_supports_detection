@@ -12,7 +12,9 @@ import histogram
 
 parser = argparse.ArgumentParser(description="3D Scatter Plot with Title")
 parser.add_argument("-t", "--title", type=str, default="", help="Title for the plot")
-parser.add_argument("-f", "--file", type=str, default=None, help="File name od Point Cloud")
+parser.add_argument(
+    "-f", "--file", type=str, default=None, help="File name od Point Cloud"
+)
 parser.add_argument(
     "-s",
     "--surface",

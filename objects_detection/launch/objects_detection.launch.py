@@ -5,7 +5,6 @@ import launch_ros.actions
 
 
 def generate_launch_description():
-
     return launch.LaunchDescription(
         [
             launch_ros.actions.Node(
@@ -15,9 +14,7 @@ def generate_launch_description():
                 emulate_tty=True,
                 # output='screen',
                 prefix=["gdbserver localhost:8009"],
-                parameters=[
-                    {'debug': True}
-                ]
+                parameters=[{"debug": True}],
             ),
         ]
     )

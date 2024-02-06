@@ -13,15 +13,26 @@
 #include <vision_msgs/msg/detection3_d_array.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
+#include <ament_index_cpp/get_package_share_directory.hpp>
 #include <objects_detection/point_types.hpp>
 
-
-namespace pcl_utils{
+namespace pcl_utils {
 
 template <typename PointT>
-typename pcl::PointCloud<PointT>::Ptr remove_far_points_from_ros2bag_converter_bug(typename pcl::PointCloud<PointT>::Ptr &cloud, double max_distance) {
+void save_cloud(const std::string &name, typename pcl::PointCloud<PointT>::Ptr cloud) {
+    pcl::PCDWriter writer;
+
+    std::string path_to_pcds = ament_index_cpp::get_package_share_directory("objects_detection");
+    path_to_pcds += std::string("/test_data/");
+    auto path = path_to_pcds + std::string(name);
+    writer.write<PointT>(path, *cloud);
+}
+
+template <typename PointT>
+typename pcl::PointCloud<PointT>::Ptr remove_far_points_from_ros2bag_converter_bug(
+    typename pcl::PointCloud<PointT>::Ptr &cloud, double max_distance) {
     auto new_cloud = typename pcl::PointCloud<PointT>::Ptr(new typename pcl::PointCloud<PointT>);
-    for (const auto& point : cloud->points) {
+    for (const auto &point : cloud->points) {
         const auto distance = pcl::euclideanDistance(point, Point{0, 0, 0});
         if (distance < max_distance) {
             new_cloud->points.push_back(point);
@@ -42,7 +53,8 @@ typename pcl::PointCloud<PointT>::Ptr convert_point_cloud2_to_cloud_ptr(rclcppCl
 }
 
 template <typename PointT>
-rclcppCloud convert_cloud_ptr_to_point_cloud2(typename pcl::PointCloud<PointT>::Ptr  cloud, const std::string &frame_name, rclcpp::Node *node) {
+rclcppCloud convert_cloud_ptr_to_point_cloud2(typename pcl::PointCloud<PointT>::Ptr cloud,
+                                              const std::string &frame_name, rclcpp::Node *node) {
     sensor_msgs::msg::PointCloud2 point_cloud;
     pcl::PCLPointCloud2 point_cloud2;
     pcl::toPCLPointCloud2(*cloud, point_cloud2);
@@ -55,7 +67,8 @@ rclcppCloud convert_cloud_ptr_to_point_cloud2(typename pcl::PointCloud<PointT>::
 }
 
 template <typename PointT>
-typename pcl::PointCloud<PointT>::Ptr rotate(typename pcl::PointCloud<PointT>::Ptr cloud, double roll, double pitch, double yaw){
+typename pcl::PointCloud<PointT>::Ptr rotate(typename pcl::PointCloud<PointT>::Ptr cloud, double roll, double pitch,
+                                             double yaw) {
     if (not cloud) {
         return nullptr;
     }
@@ -70,16 +83,15 @@ typename pcl::PointCloud<PointT>::Ptr rotate(typename pcl::PointCloud<PointT>::P
     return transformed_cloud;
 }
 
-
 template <typename PointT>
-typename pcl::PointCloud<PointT>::Ptr  translate(typename pcl::PointCloud<PointT>::Ptr cloud, double x, double y, double z) {
+typename pcl::PointCloud<PointT>::Ptr translate(typename pcl::PointCloud<PointT>::Ptr cloud, double x, double y,
+                                                double z) {
     typename pcl::PointCloud<PointT>::Ptr transformed_cloud(new pcl::PointCloud<PointT>);
     Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
     transform_2.translation() << x, y, z;
     pcl::transformPointCloud(*cloud, *transformed_cloud, transform_2);
     return transformed_cloud;
 }
-
 
 template <typename PointT>
 typename pcl::PointCloud<PointT>::Ptr merge_clouds(const std::vector<typename pcl::PointCloud<PointT>::Ptr> &clouds) {
@@ -94,11 +106,11 @@ typename pcl::PointCloud<PointT>::Ptr merge_clouds(const std::vector<typename pc
     return merged_clouds;
 }
 
-
 template <typename PointT>
-typename pcl::PointCloud<PointT>::Ptr merge_clouds_and_remove_simillar_points(const std::vector<typename pcl::PointCloud<PointT>::Ptr> & clouds, double eps) {
+typename pcl::PointCloud<PointT>::Ptr merge_clouds_and_remove_simillar_points(
+    const std::vector<typename pcl::PointCloud<PointT>::Ptr> &clouds, double eps) {
     typename pcl::PointCloud<PointT>::Ptr new_cloud(new typename pcl::PointCloud<PointT>);
-    for (const auto& cloud : clouds) {
+    for (const auto &cloud : clouds) {
         *new_cloud += *cloud;
     }
     for (std::size_t i = 0; i < new_cloud->size(); ++i) {
@@ -114,4 +126,4 @@ typename pcl::PointCloud<PointT>::Ptr merge_clouds_and_remove_simillar_points(co
     new_cloud->width = 1;
     return new_cloud;
 }
-}
+}  // namespace pcl_utils

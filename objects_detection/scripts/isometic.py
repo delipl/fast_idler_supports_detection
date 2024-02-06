@@ -20,7 +20,9 @@ def plot_3D(title: str, cloud: np.array):
         x,
         y,
         z,
-        s=[0.05 for i in range(len(x))],
+        s=[0.5 for i in range(len(x))],
+        c=-z,
+        cmap='rainbow',
         marker="o",
     )
     ax.xaxis.pane.fill = False

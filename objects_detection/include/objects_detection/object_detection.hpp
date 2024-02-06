@@ -142,6 +142,7 @@ class ObjectDetection : public rclcpp::Node {
     void save_data_to_yaml(const sensor_msgs::msg::PointCloud2::Ptr &msg, CloudIRLPtrs clouds, Detection3DArrayPtr detections);
 
     void clear_markers(const std::string &frame_name);
+    void clear_durations();
     std::string filename;
 
     int64_t normalization_duration_count;
@@ -156,6 +157,7 @@ class ObjectDetection : public rclcpp::Node {
     std::size_t filter_further_than_5m_points_count;
     std::size_t filter_ground_points_count;
     std::size_t roi_points_count;
+    int debug = 1;
 };
 
 // Przeładowanie operatora << dla struktury Ellipsoid

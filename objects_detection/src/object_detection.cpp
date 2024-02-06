@@ -11,6 +11,7 @@ ObjectDetection::ObjectDetection() : Node("object_detection") {
 void ObjectDetection::declare_parameters() {
     // FIXME: Double parameters are strings to work with rqt dynamic reconfigure.
     declare_parameter("general.filename", "output.yaml");
+    declare_parameter("general.debug", "0");
 
     declare_parameter("general.pointcloud_topic_name", "/velodyne_points");
     declare_parameter("general.transform.roll", "-0.09");
@@ -49,6 +50,7 @@ void ObjectDetection::declare_parameters() {
 }
 
 void ObjectDetection::get_parameters() {
+    debug = std::stoi(get_parameter("general.debug").as_string());
     filename = get_parameter("general.filename").as_string();
     pointcloud_topic_name = get_parameter("general.pointcloud_topic_name").as_string();
     roll = std::stod(get_parameter("general.transform.roll").as_string());
@@ -127,10 +129,12 @@ void ObjectDetection::create_rclcpp_instances() {
 
 void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     auto start = std::chrono::high_resolution_clock::now();
+    clear_durations();
     get_parameters();
     RCLCPP_DEBUG(get_logger(), "Pointcloud callback.");
     if (msg->width * msg->height == 0) {
         RCLCPP_WARN(get_logger(), "Empty pointcloud skipping...");
+        save_data_to_yaml(msg, {}, nullptr);
         return;
     }
     auto normalization_start = std::chrono::high_resolution_clock::now();
@@ -152,8 +156,8 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     auto filtered_ground_clouds =
         filter_ground_and_get_normal_and_height(cloud_for_ground_detection, pcl::SACMODEL_PLANE, 800,
                                                 ground_level_height, std::ref(normal_vec), std::ref(ground_height));
-    auto ground = filtered_ground_clouds.first;
-    auto without_ground = filtered_ground_clouds.second;
+    auto& ground = filtered_ground_clouds.first;
+    auto& without_ground = filtered_ground_clouds.second;
     filter_ground_points_count = without_ground->size();
 
     Eigen::Vector3d rpy;
@@ -163,6 +167,12 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
 
     normalization_duration_count =
         std::chrono::duration_cast<std::chrono::microseconds>(normalization_end - normalization_start).count();
+    if (debug) {
+        pcl_utils::save_cloud<PointIR>("short.pcd", cloud);
+        pcl_utils::save_cloud<PointIR>("ground.pcd", ground);
+        pcl_utils::save_cloud<PointIR>("without_ground.pcd", without_ground);
+        pcl_utils::save_cloud<PointIR>("aligned_cloud.pcd", aligned_cloud);
+    }
 
     // ============================================
     auto conveyor_clusterization_start = std::chrono::high_resolution_clock::now();
@@ -178,6 +188,7 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     if (not clustered_conveyors_candidates.size()) {
         RCLCPP_WARN(get_logger(), "Cannot find any conveyor candidate! Skipping pointcloud");
         clear_markers(frame);
+        save_data_to_yaml(msg, {}, nullptr);
         return;
     }
 
@@ -211,6 +222,7 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     if (not clustered_conveyors.size()) {
         RCLCPP_WARN(get_logger(), "Cannot find any conveyor! Skipping pointcloud");
         clear_markers(frame);
+        save_data_to_yaml(msg, {}, nullptr);
         return;
     }
 
@@ -229,6 +241,7 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
             std::chrono::duration_cast<std::chrono::microseconds>(density_segmentation_end - density_segmentation_start)
                 .count();
         clear_markers(frame);
+        save_data_to_yaml(msg, {}, nullptr);
         return;
     }
 
@@ -245,6 +258,7 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
             std::chrono::duration_cast<std::chrono::microseconds>(density_segmentation_end - density_segmentation_start)
                 .count();
         clear_markers(frame);
+        save_data_to_yaml(msg, {}, nullptr);
         return;
     }
 
@@ -258,6 +272,12 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     density_segmentation_duration_count =
         std::chrono::duration_cast<std::chrono::microseconds>(density_segmentation_end - density_segmentation_start)
             .count();
+    if (debug) {
+        pcl_utils::save_cloud<PointIRL>("merged_conveyors.pcd", merged_conveyors);
+        pcl_utils::save_cloud<PointIRL>("low_density_cloud.pcd", low_density_cloud);
+        pcl_utils::save_cloud<PointIRL>("high_density_top_cloud.pcd", high_density_top_cloud);
+        pcl_utils::save_cloud<PointIRL>("merged_density_cloud.pcd", merged_density_cloud);
+    }
 
     // ============================================
     auto supports_clusterization_start = std::chrono::high_resolution_clock::now();
@@ -277,6 +297,7 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     if (not clustered_supports_candidates.size()) {
         RCLCPP_WARN(get_logger(), "Cannot find any support candidate! Skipping pointcloud");
         clear_markers(frame);
+        save_data_to_yaml(msg, {}, nullptr);
         return;
     }
 
@@ -290,7 +311,9 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     supports_classification_duration_count = std::chrono::duration_cast<std::chrono::microseconds>(
                                                  supports_classification_end - supports_classification_start)
                                                  .count();
-
+    if (debug) {
+        pcl_utils::save_cloud<PointIRL>("merged_supports_candidates.pcd", merged_supports_candidates);
+    }
     // ============================================
     auto estimation_start = std::chrono::high_resolution_clock::now();
 
@@ -308,9 +331,14 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     estimation_duration_count =
         std::chrono::duration_cast<std::chrono::microseconds>(estimation_end - estimation_start).count();
 
+    if (debug) {
+        pcl_utils::save_cloud<PointIRL>("base_linked.pcd", base_linked);
+    }
+
     // ============================================
 
     // Publish
+    if (debug) {
     ground_pub_->publish(pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIR>(ground, frame, this));
     without_ground_pub_->publish(pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIR>(without_ground, frame, this));
     transformed_pub_->publish(pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIR>(aligned_cloud, frame, this));
@@ -341,14 +369,13 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     //     pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(to_velodyne_rotated, frame, this));
     clustered_supports_candidates_base_link_pub_->publish(
         pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(base_linked, "base_link", this));
-
+    }
     save_data_to_yaml(msg, base_linked_clouds, supports_candidates_detection_3d_msg);
 
     auto end = std::chrono::high_resolution_clock::now();
-    auto count =
-        std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    auto count = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 
-    RCLCPP_INFO_STREAM(get_logger(), "Callback took: " <<  count / 10e6);
+    RCLCPP_INFO_STREAM(get_logger(), "Callback took: " << count / 10e6);
 }
 
 void ObjectDetection::clear_markers(const std::string& frame_name) {
@@ -622,26 +649,12 @@ Detection3DArrayPtr ObjectDetection::detect_supports(const CloudIRLPtrs& cluster
         double top_score = 1.0;
         double bottom_score = 1.0;
 
-        if (point_with_min_z.ring == 0) {
-            // The bottom of the support is not in range
-            top_score = std::abs(point_with_max_z.z - support_height) / 0.1;
-        } else if (point_with_max_z.ring == 15) {
-            // The top of the support is not in range
-            bottom_score = std::abs(point_with_min_z.z - ground_level_height) / 0.1;
+        top_score = std::max(0.0001, 1 - std::abs(point_with_max_z.z - support_height) / 0.1);
+        bottom_score = std::max(0.0001, 1 - std::abs(point_with_min_z.z - ground_level_height) / 0.1);
 
-        } else {
-            // Whole support in range
-            top_score = std::abs(point_with_max_z.z - support_height) / 0.1;
-            bottom_score = std::abs(point_with_min_z.z - ground_level_height) / 0.1;
-        }
-
-        top_score = std::clamp(top_score, 0.0, 1.0);
-        bottom_score = std::clamp(bottom_score, 0.0, 1.0);
-
-        support_object.hypothesis.score = 1.0 - top_score * bottom_score;
-        top_object.hypothesis.score = 1.0 - top_score;
-        bottom_object.hypothesis.score = 1.0 - bottom_score;
-
+        support_object.hypothesis.score = 2 * (top_score * bottom_score) / (top_score + bottom_score);
+        top_object.hypothesis.score = top_score;
+        bottom_object.hypothesis.score = bottom_score;
 
         support_object.hypothesis.class_id = class_name;
         top_object.hypothesis.class_id = class_name + "/top";
@@ -737,10 +750,13 @@ ObjectDetection::EllipsoidInfo ObjectDetection::get_ellipsoid_and_center(CloudIP
     return {ellipsoid, center, "unknown"};
 }
 
-void ObjectDetection::save_data_to_yaml(const sensor_msgs::msg::PointCloud2::Ptr& msg, CloudIRLPtrs clouds, Detection3DArrayPtr detections) {
+void ObjectDetection::save_data_to_yaml(const sensor_msgs::msg::PointCloud2::Ptr& msg, CloudIRLPtrs clouds,
+                                        Detection3DArrayPtr detections) {
     YAML::Node frame_node;
     YAML::Node yaml_node;
     std::size_t detected_count;
+    // Dodać środek i prawdopodobieństwo.
+
     for (auto i = 0u; i < clouds.size(); ++i) {
         YAML::Node object_node;
 
@@ -791,9 +807,15 @@ void ObjectDetection::save_data_to_yaml(const sensor_msgs::msg::PointCloud2::Ptr
         object_node["mean_point"]["y"] = mean_point_y;
         object_node["mean_point"]["z"] = mean_point_z;
 
-        object_node["score"] = detections->detections[i].results[0].hypothesis.score;
-        object_node["score_bottom"] = detections->detections[i].results[1].hypothesis.score;
-        object_node["score_top"] = detections->detections[i].results[2].hypothesis.score;
+        if (detections != nullptr) {
+            object_node["score"] = detections->detections[i].results[0].hypothesis.score;
+            object_node["score_bottom"] = detections->detections[i].results[1].hypothesis.score;
+            object_node["score_top"] = detections->detections[i].results[2].hypothesis.score;
+        } else {
+            object_node["score"] = 0.0;
+            object_node["score_bottom"] = 0.0;
+            object_node["score_top"] = 0.0;
+        }
 
         frame_node["objects"].push_back(object_node);
     }
@@ -902,4 +924,14 @@ Histogram ObjectDetection::segment_local_peeks(const Histogram& histogram, std::
         }
     }
     return segmented_histogram;
+}
+
+void ObjectDetection::clear_durations() {
+    normalization_duration_count = 0;
+    conveyor_clusterization_duration_count = 0;
+    conveyor_classification_duration_count = 0;
+    density_segmentation_duration_count = 0;
+    supports_clusterization_duration_count = 0;
+    supports_classification_duration_count = 0;
+    estimation_duration_count = 0;
 }
