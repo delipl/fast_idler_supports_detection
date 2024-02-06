@@ -135,6 +135,11 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     if (msg->width * msg->height == 0) {
         RCLCPP_WARN(get_logger(), "Empty pointcloud skipping...");
         save_data_to_yaml(msg, {}, nullptr);
+
+        auto end = std::chrono::high_resolution_clock::now();
+        auto count = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+
+        RCLCPP_INFO_STREAM(get_logger(), "Callback took: " << count / 1e6);
         return;
     }
     auto normalization_start = std::chrono::high_resolution_clock::now();
@@ -189,6 +194,11 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
         RCLCPP_WARN(get_logger(), "Cannot find any conveyor candidate! Skipping pointcloud");
         clear_markers(frame);
         save_data_to_yaml(msg, {}, nullptr);
+
+        auto end = std::chrono::high_resolution_clock::now();
+        auto count = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+
+        RCLCPP_INFO_STREAM(get_logger(), "Callback took: " << count / 1e6);
         return;
     }
 
@@ -223,6 +233,11 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
         RCLCPP_WARN(get_logger(), "Cannot find any conveyor! Skipping pointcloud");
         clear_markers(frame);
         save_data_to_yaml(msg, {}, nullptr);
+
+        auto end = std::chrono::high_resolution_clock::now();
+        auto count = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+
+        RCLCPP_INFO_STREAM(get_logger(), "Callback took: " << count / 1e6);
         return;
     }
 
@@ -242,6 +257,11 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
                 .count();
         clear_markers(frame);
         save_data_to_yaml(msg, {}, nullptr);
+
+        auto end = std::chrono::high_resolution_clock::now();
+        auto count = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+
+        RCLCPP_INFO_STREAM(get_logger(), "Callback took: " << count / 1e6);
         return;
     }
 
@@ -259,6 +279,11 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
                 .count();
         clear_markers(frame);
         save_data_to_yaml(msg, {}, nullptr);
+
+        auto end = std::chrono::high_resolution_clock::now();
+        auto count = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+
+        RCLCPP_INFO_STREAM(get_logger(), "Callback took: " << count / 1e6);
         return;
     }
 
@@ -298,6 +323,11 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
         RCLCPP_WARN(get_logger(), "Cannot find any support candidate! Skipping pointcloud");
         clear_markers(frame);
         save_data_to_yaml(msg, {}, nullptr);
+
+        auto end = std::chrono::high_resolution_clock::now();
+        auto count = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+
+        RCLCPP_INFO_STREAM(get_logger(), "Callback took: " << count / 1e6);
         return;
     }
 
@@ -339,43 +369,44 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
 
     // Publish
     if (debug) {
-    ground_pub_->publish(pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIR>(ground, frame, this));
-    without_ground_pub_->publish(pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIR>(without_ground, frame, this));
-    transformed_pub_->publish(pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIR>(aligned_cloud, frame, this));
+        ground_pub_->publish(pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIR>(ground, frame, this));
+        without_ground_pub_->publish(
+            pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIR>(without_ground, frame, this));
+        transformed_pub_->publish(pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIR>(aligned_cloud, frame, this));
 
-    clustered_conveyors_candidates_pub_->publish(
-        pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(merged_conveyors_candidates, frame, this));
-    clustered_conveyors_pub_->publish(
-        pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(merged_conveyors, frame, this));
-    conveyors_detection_3d_pub_->publish(*conveyors_candidates_detection_3d_msg);
+        clustered_conveyors_candidates_pub_->publish(
+            pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(merged_conveyors_candidates, frame, this));
+        clustered_conveyors_pub_->publish(
+            pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(merged_conveyors, frame, this));
+        conveyors_detection_3d_pub_->publish(*conveyors_candidates_detection_3d_msg);
 
-    forward_density_histogram_pub_->publish(create_image_from_histogram(histogram));
-    forward_density_clustered_histogram_pub_->publish(create_image_from_histogram(clustered_histogram));
-    forward_hist_filtered_pub_->publish(
-        pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(low_density_cloud, frame, this));
+        forward_density_histogram_pub_->publish(create_image_from_histogram(histogram));
+        forward_density_clustered_histogram_pub_->publish(create_image_from_histogram(clustered_histogram));
+        forward_hist_filtered_pub_->publish(
+            pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(low_density_cloud, frame, this));
 
-    ground_density_clustered_histogram_pub_->publish(create_image_from_histogram(clustered_ground_histogram));
-    ground_density_histogram_pub_->publish(create_image_from_histogram(ground_histogram));
-    top_hist_filtered_pub_->publish(
-        pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(high_density_top_cloud, frame, this));
-    merged_density_clouds_pub_->publish(
-        pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(merged_density_cloud, frame, this));
+        ground_density_clustered_histogram_pub_->publish(create_image_from_histogram(clustered_ground_histogram));
+        ground_density_histogram_pub_->publish(create_image_from_histogram(ground_histogram));
+        top_hist_filtered_pub_->publish(
+            pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(high_density_top_cloud, frame, this));
+        merged_density_clouds_pub_->publish(
+            pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(merged_density_cloud, frame, this));
 
-    clustered_supports_candidates_pub_->publish(
-        pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(merged_supports_candidates, frame, this));
-    supports_detection_3d_pub_->publish(*supports_candidates_detection_3d_msg);
+        clustered_supports_candidates_pub_->publish(
+            pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(merged_supports_candidates, frame, this));
+        supports_detection_3d_pub_->publish(*supports_candidates_detection_3d_msg);
 
-    // clustered_supports_candidates_velodyne_pub_->publish(
-    //     pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(to_velodyne_rotated, frame, this));
-    clustered_supports_candidates_base_link_pub_->publish(
-        pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(base_linked, "base_link", this));
+        // clustered_supports_candidates_velodyne_pub_->publish(
+        //     pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(to_velodyne_rotated, frame, this));
+        clustered_supports_candidates_base_link_pub_->publish(
+            pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(base_linked, "base_link", this));
     }
     save_data_to_yaml(msg, base_linked_clouds, supports_candidates_detection_3d_msg);
 
     auto end = std::chrono::high_resolution_clock::now();
     auto count = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 
-    RCLCPP_INFO_STREAM(get_logger(), "Callback took: " << count / 10e6);
+    RCLCPP_INFO_STREAM(get_logger(), "Callback took: " << count / 1e6);
 }
 
 void ObjectDetection::clear_markers(const std::string& frame_name) {
@@ -822,19 +853,19 @@ void ObjectDetection::save_data_to_yaml(const sensor_msgs::msg::PointCloud2::Ptr
     frame_node["timestamp"]["sec"] = msg->header.stamp.sec;
     frame_node["timestamp"]["nanosec"] = msg->header.stamp.nanosec;
 
-    frame_node["durations"]["normalization"] = normalization_duration_count / 10e6;
-    frame_node["durations"]["conveyor_clusterization"] = conveyor_clusterization_duration_count / 10e6;
-    frame_node["durations"]["conveyor_classification"] = conveyor_classification_duration_count / 10e6;
-    frame_node["durations"]["density_segmentation"] = density_segmentation_duration_count / 10e6;
-    frame_node["durations"]["supports_clusterization"] = supports_clusterization_duration_count / 10e6;
-    frame_node["durations"]["supports_classification"] = supports_classification_duration_count / 10e6;
-    frame_node["durations"]["estimation"] = estimation_duration_count / 10e6;
+    frame_node["durations"]["normalization"] = normalization_duration_count / 1e6;
+    frame_node["durations"]["conveyor_clusterization"] = conveyor_clusterization_duration_count / 1e6;
+    frame_node["durations"]["conveyor_classification"] = conveyor_classification_duration_count / 1e6;
+    frame_node["durations"]["density_segmentation"] = density_segmentation_duration_count / 1e6;
+    frame_node["durations"]["supports_clusterization"] = supports_clusterization_duration_count / 1e6;
+    frame_node["durations"]["supports_classification"] = supports_classification_duration_count / 1e6;
+    frame_node["durations"]["estimation"] = estimation_duration_count / 1e6;
     auto processing_duration = normalization_duration_count + density_segmentation_duration_count +
                                conveyor_clusterization_duration_count + conveyor_classification_duration_count +
                                supports_clusterization_duration_count + supports_classification_duration_count +
                                estimation_duration_count;
 
-    frame_node["durations"]["processing"] = processing_duration / 10e6;
+    frame_node["durations"]["processing"] = processing_duration / 1e6;
 
     yaml_node.push_back(frame_node);
 
