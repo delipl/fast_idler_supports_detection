@@ -126,4 +126,29 @@ typename pcl::PointCloud<PointT>::Ptr merge_clouds_and_remove_simillar_points(
     new_cloud->width = 1;
     return new_cloud;
 }
+
+template <typename PointT>
+typename pcl::PointCloud<PointT>::Ptr remove_simillar_points(
+    const std::vector<typename pcl::PointCloud<PointT>::Ptr> &clouds, double eps) {
+    typename pcl::PointCloud<PointT>::Ptr new_cloud(new typename pcl::PointCloud<PointT>);
+    for (const auto &point : clouds[0]->points) {
+        bool found_similar = false;
+
+        for (std::size_t j = 1; j < clouds.size(); ++j) {
+            for (const auto &point_compare : clouds[j]->points) {
+                const double distance = pcl::euclideanDistance(point, point_compare);
+                if (distance <= eps) {
+                    found_similar = true;
+                }
+            }
+        }
+        if (not found_similar) {
+            new_cloud->points.push_back(point);
+        }
+    }
+
+    new_cloud->height = new_cloud->points.size();
+    new_cloud->width = 1;
+    return new_cloud;
+}
 }  // namespace pcl_utils

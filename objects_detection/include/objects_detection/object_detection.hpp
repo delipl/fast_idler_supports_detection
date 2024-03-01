@@ -122,6 +122,7 @@ class ObjectDetection : public rclcpp::Node {
 
     CloudPtr get_points_from_bounding_boxes(CloudPtr cloud, BoundingBoxArrayPtr boxes);
 
+    Histogram create_top_histogram(CloudIRLPtr cloud, double resolution);
     Histogram create_histogram(CloudIRLPtr cloud, double resolution);
     Histogram remove_low_density_columns(const Histogram &histogram, std::size_t threshold);
     Histogram threshold_histogram(const Histogram &histogram, std::size_t min, std::size_t max);
