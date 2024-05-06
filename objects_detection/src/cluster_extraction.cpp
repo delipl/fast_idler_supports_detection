@@ -1,7 +1,7 @@
 #include <objects_detection/cluster_extraction.hpp>
 
 CloudIRLPtrs ClusterExtraction::euclidean(CloudIRPtr cloud, double tolerance, std::size_t min_size,
-                                        std::size_t max_size) const {
+                                          std::size_t max_size) const {
     CloudIRPtr cloud_filtered(cloud);
     pcl::search::KdTree<PointIR>::Ptr tree(new pcl::search::KdTree<PointIR>);
     tree->setInputCloud(cloud);
@@ -24,7 +24,7 @@ CloudIRLPtrs ClusterExtraction::euclidean(CloudIRPtr cloud, double tolerance, st
             point.x = (*cloud_filtered)[idx].x;
             point.y = (*cloud_filtered)[idx].y;
             point.z = (*cloud_filtered)[idx].z;
-            point.intensity = (*cloud_filtered)[idx].intensity; 
+            point.intensity = (*cloud_filtered)[idx].intensity;
             point.ring = (*cloud_filtered)[idx].ring;
             point.label = j * 10;
             cloud_cluster->push_back(point);

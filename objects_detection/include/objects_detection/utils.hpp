@@ -15,7 +15,6 @@
 
 #include <objects_detection/point_types.hpp>
 
-
 using Point = pcl::PointXYZ;
 using Cloud = pcl::PointCloud<Point>;
 using CloudPtr = Cloud::Ptr;
@@ -64,8 +63,6 @@ CloudPtr remove_intensity_from_cloud(CloudIPtr cloud);
 // CloudPtr translate(CloudPtr cloud, double x, double y, double z);
 
 bool is_point_inside_box(const Point &point, const BoundingBox &box);
-
-
 
 // TODO: template this:
 void print_cloud(rclcpp::Node *node, CloudPtr cloud);

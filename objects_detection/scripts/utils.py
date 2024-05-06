@@ -94,7 +94,7 @@ def read_pcd(file_path):
                 point = np.array([x, y, z, i, r])
                 points.append(point)
             elif len(values) == 6:
-                x, y, z, i, r, l = (
+                x, y, z, i, r, o = (
                     float(values[0]),
                     float(values[1]),
                     float(values[2]),
@@ -102,8 +102,7 @@ def read_pcd(file_path):
                     float(values[4]),
                     float(values[5]),
                 )
-                point = np.array([x, y, z, i, r, l])
+                point = np.array([x, y, z, i, r, o])
                 points.append(point)
-
 
     return np.array(points)

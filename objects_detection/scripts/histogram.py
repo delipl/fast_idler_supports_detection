@@ -4,7 +4,6 @@ import numpy as np
 
 def show_2D_YZ_histogram(cloud, resolution=0.1):
     histogram_image = []
-    x = cloud[:, 0]
     y = cloud[:, 1]
     z = cloud[:, 2]
     # print(f"min x {min(x)}, max x {max(x) max y }")
@@ -26,10 +25,8 @@ def show_2D_YZ_histogram(cloud, resolution=0.1):
         if image_width_pos >= image_width or image_height_pos >= image_height:
             continue
         histogram_image[image_height_pos][image_width_pos] += 1
-        max_sector = max(
-            [histogram_image[image_height_pos][image_width_pos], max_sector]
-        )
-    plt.rcParams.update({'font.size': 22})  # Ustawienie globalnie większego rozmiaru czcionki
+        max_sector = max([histogram_image[image_height_pos][image_width_pos], max_sector])
+    plt.rcParams.update({"font.size": 22})  # Ustawienie globalnie większego rozmiaru czcionki
 
     plt.figure("2D histogram YZ")
     plt.xlabel("Y")
@@ -40,7 +37,7 @@ def show_2D_YZ_histogram(cloud, resolution=0.1):
     img = plt.imshow(histogram_image, extent=extent_values)
     img.set_clim(0, max_sector)
     plt.colorbar()
-    plt.rcParams.update({'font.size': 22})  # Ustawienie globalnie większego rozmiaru czcionki
+    plt.rcParams.update({"font.size": 22})  # Ustawienie globalnie większego rozmiaru czcionki
 
     plt.figure("Histogram YZ")
     plt.xlabel("number of points in a cell", fontsize=12)
@@ -52,13 +49,9 @@ def show_2D_YZ_histogram(cloud, resolution=0.1):
         densities += column
     densities = np.array(densities)
 
-    plt.hist(
-        densities, bins=np.arange(min(densities), max(densities) + 1, 1), align="left"
-    )
-    plt.axvline(x=30, color='r', linestyle='-')
+    plt.hist(densities, bins=np.arange(min(densities), max(densities) + 1, 1), align="left")
+    plt.axvline(x=30, color="r", linestyle="-")
     plt.xticks(np.arange(min(densities), max(densities) + 1, 11))
-
-    
 
     return histogram_image
 
@@ -86,10 +79,8 @@ def show_2D_XY_histogram(cloud, resolution=0.1):
         if image_width_pos >= image_width or image_height_pos >= image_height:
             continue
         histogram_image[image_height_pos][image_width_pos] += 1
-        max_sector = max(
-            [histogram_image[image_height_pos][image_width_pos], max_sector]
-        )
-    plt.rcParams.update({'font.size': 22})  # Ustawienie globalnie większego rozmiaru czcionki
+        max_sector = max([histogram_image[image_height_pos][image_width_pos], max_sector])
+    plt.rcParams.update({"font.size": 22})  # Ustawienie globalnie większego rozmiaru czcionki
 
     plt.figure("2D histogram XY")
     plt.xlabel("Y")
@@ -98,8 +89,7 @@ def show_2D_XY_histogram(cloud, resolution=0.1):
     img = plt.imshow(histogram_image, extent=extent_values)
     img.set_clim(0, max_sector)
     plt.colorbar()
-    plt.rcParams.update({'font.size': 22})  # Ustawienie globalnie większego rozmiaru czcionki
-
+    plt.rcParams.update({"font.size": 22})  # Ustawienie globalnie większego rozmiaru czcionki
 
     plt.figure("Histogram XY")
     plt.xlabel("number of points in a cell")
@@ -112,9 +102,7 @@ def show_2D_XY_histogram(cloud, resolution=0.1):
         densities += column
     densities = np.array(densities)
 
-    plt.hist(
-        densities, bins=np.arange(min(densities), max(densities) + 1, 1), align="left"
-    )
+    plt.hist(densities, bins=np.arange(min(densities), max(densities) + 1, 1), align="left")
     plt.xticks(np.arange(min(densities), max(densities) + 1, 11))
 
     return histogram_image

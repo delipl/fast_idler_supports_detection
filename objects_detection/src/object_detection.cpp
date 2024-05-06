@@ -78,7 +78,7 @@ void ObjectDetection::get_parameters() {
     ground_histogram_min = std::stoi(get_parameter("general.ground.histogram.min").as_string());
     ground_histogram_max = std::stoi(get_parameter("general.ground.histogram.max").as_string());
     ground_histogram_a = std::stoi(get_parameter("general.ground.histogram.a").as_string());
-    slope = std::stoi(   get_parameter("general.ground.histogram.slope").as_string());
+    slope = std::stoi(get_parameter("general.ground.histogram.slope").as_string());
     range = std::stoi(get_parameter("general.ground.histogram.range").as_string());
 
     conveyor_candidates_clusteler.euclidean_tolerance =
@@ -218,7 +218,7 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
         RCLCPP_INFO_STREAM(get_logger(), "Callback took: " << count / 1e6);
         return;
     }
-    
+
     auto clustered_histogram = threshold_histogram(histogram, forward_histogram_min, forward_histogram_max);
     auto low_density_cloud = filter_with_density_on_x_image(merged_conveyors, clustered_histogram);
 

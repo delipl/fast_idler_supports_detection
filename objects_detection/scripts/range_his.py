@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import math
-import utils
 import copy
 
 
@@ -52,15 +51,13 @@ def show_2D_XY_histogram(resolution=0.1, width=2.0, height=2.0):
 
     for i in range(image_width):
         for j in range(image_height):
-            z_offset = -1.34
+            # z_offset = -1.34
             model_height = 0.6
             fov = 15.0
             intensity = 0
             offset = math.degrees(0.50)
             point_min = np.array([i * resolution, j * resolution - width / 2.0, 0])
-            point_max = np.array(
-                [i * resolution, j * resolution - width / 2.0, model_height]
-            )
+            point_max = np.array([i * resolution, j * resolution - width / 2.0, model_height])
 
             origin_points = rotate_and_translate([point_min, point_max], 0.5, -1.34)
 

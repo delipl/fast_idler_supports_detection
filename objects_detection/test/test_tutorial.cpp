@@ -1,14 +1,14 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <ament_index_cpp/get_package_share_directory.hpp>
 #include <pcl/features/normal_3d.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
+#include <ament_index_cpp/get_package_share_directory.hpp>
 
+#include <pcl/visualization/pcl_visualizer.h>
 #include <objects_detection/object_detection.hpp>
 #include <objects_detection/utils.hpp>
-#include <pcl/visualization/pcl_visualizer.h>
 std::string path_to_pcds;
 template <typename T>
 int load_test_cloud(pcl::PointCloud<PointT>::Ptr cloud, const char* file_name = "test_cloud.pcd") {
@@ -48,59 +48,57 @@ TEST(ObjectDetectionTest, ToCharts) {
 
     auto clustered_conveyors_candidates = object_detection.conveyor_candidates_clusteler.euclidean(aligned_cloud);
 
+    //     auto histogram = object_detection.create_histogram(tunneled_cloud, 0.1);
+    //     auto threshold_histogram_yz = object_detection.threshold_histogram(histogram, 15, 30);
+    //     auto density_filtered_yz =
+    //         object_detection.filter_with_density_on_x_image(tunneled_cloud, threshold_histogram_yz);
+    //     EXPECT_THAT(density_filtered_yz->points.size(), testing::Le(tunneled_cloud->points.size()));
+    //     save_cloud("density_filtered_yz_5.pcd", density_filtered_yz);
 
+    //     auto rotated_for_ground_histogram = rotate(tunneled_cloud, 0.0, -M_PI / 2.0, 0.0);
+    //     auto ground_histogram = object_detection.create_histogram(rotated_for_ground_histogram, 0.1);
+    //     auto ground_local_peeks = object_detection.segment_local_peeks(ground_histogram, 10, 3);
+    //     auto density_filtered_xy =
+    //         object_detection.filter_with_density_on_z_image(tunneled_cloud, ground_local_peeks);
+    //     EXPECT_THAT(density_filtered_xy->points.size(), testing::Le(tunneled_cloud->points.size()));
+    //     save_cloud("density_filtered_xy_5.pcd", density_filtered_xy);
 
-//     auto histogram = object_detection.create_histogram(tunneled_cloud, 0.1);
-//     auto threshold_histogram_yz = object_detection.threshold_histogram(histogram, 15, 30);
-//     auto density_filtered_yz =
-//         object_detection.filter_with_density_on_x_image(tunneled_cloud, threshold_histogram_yz);
-//     EXPECT_THAT(density_filtered_yz->points.size(), testing::Le(tunneled_cloud->points.size()));
-//     save_cloud("density_filtered_yz_5.pcd", density_filtered_yz);
+    //     auto merged_density_cloud{object_detection.merge_clouds_and_remove_simillar_points({density_filtered_yz,
+    //     density_filtered_xy}, 0.0001)}; EXPECT_THAT(density_filtered_xy->points.size(),
+    //     testing::Le(merged_density_cloud->points.size())); EXPECT_THAT(density_filtered_yz->points.size(),
+    //     testing::Le(merged_density_cloud->points.size())); save_cloud("merged_density_5.pcd", merged_density_cloud);
+    //     pcl::NormalEstimation<Point, pcl::Normal> ne;
+    //     ne.setInputCloud (merged_density_cloud);
+    //     pcl::search::KdTree<Point>::Ptr tree (new pcl::search::KdTree<Point> ());
+    //     ne.setSearchMethod (tree);
+    //     pcl::PointCloud<pcl::Normal>::Ptr cloud_normals (new pcl::PointCloud<pcl::Normal>);
+    //     ne.setRadiusSearch (0.1);
+    //     ne.compute (*cloud_normals);
+    //     save_cloud("merged_legs_normals.pcd", cloud_normals);
+    //     //     // Inicjalizuj wizualizator PCL
+    //     pcl::visualization::PCLVisualizer viewer("PCL Viewer");
+    //     viewer.setBackgroundColor (0.0, 0.0, 0.5);
+    //     viewer.addPointCloudNormals<pcl::PointXYZ,pcl::Normal>(merged_density_cloud, cloud_normals);
 
-//     auto rotated_for_ground_histogram = rotate(tunneled_cloud, 0.0, -M_PI / 2.0, 0.0);
-//     auto ground_histogram = object_detection.create_histogram(rotated_for_ground_histogram, 0.1);
-//     auto ground_local_peeks = object_detection.segment_local_peeks(ground_histogram, 10, 3);
-//     auto density_filtered_xy =
-//         object_detection.filter_with_density_on_z_image(tunneled_cloud, ground_local_peeks);
-//     EXPECT_THAT(density_filtered_xy->points.size(), testing::Le(tunneled_cloud->points.size()));
-//     save_cloud("density_filtered_xy_5.pcd", density_filtered_xy);
+    //     while (!viewer.wasStopped()) {
+    //         viewer.spin();
+    //     }
 
-//     auto merged_density_cloud{object_detection.merge_clouds_and_remove_simillar_points({density_filtered_yz, density_filtered_xy}, 0.0001)};
-//     EXPECT_THAT(density_filtered_xy->points.size(), testing::Le(merged_density_cloud->points.size()));
-//     EXPECT_THAT(density_filtered_yz->points.size(), testing::Le(merged_density_cloud->points.size()));
-//     save_cloud("merged_density_5.pcd", merged_density_cloud);
-//     pcl::NormalEstimation<Point, pcl::Normal> ne;
-//     ne.setInputCloud (merged_density_cloud);
-//     pcl::search::KdTree<Point>::Ptr tree (new pcl::search::KdTree<Point> ());
-//     ne.setSearchMethod (tree);
-//     pcl::PointCloud<pcl::Normal>::Ptr cloud_normals (new pcl::PointCloud<pcl::Normal>);
-//     ne.setRadiusSearch (0.1);
-//     ne.compute (*cloud_normals);
-//     save_cloud("merged_legs_normals.pcd", cloud_normals);
-//     //     // Inicjalizuj wizualizator PCL
-//     pcl::visualization::PCLVisualizer viewer("PCL Viewer");
-//     viewer.setBackgroundColor (0.0, 0.0, 0.5);
-//     viewer.addPointCloudNormals<pcl::PointXYZ,pcl::Normal>(merged_density_cloud, cloud_normals);
-    
-//     while (!viewer.wasStopped()) {
-//         viewer.spin();
-//     }
+    //     ClusterExtraction cluster;
+    //     cluster.euclidean_tolerance = 0.4;
+    //     cluster.euclidean_min_size = 20;
+    //     cluster.euclidean_max_size = 500;
+    //     CloudIPtrs clustered_legs = cluster.euclidean(merged_density_cloud);
 
-//     ClusterExtraction cluster;
-//     cluster.euclidean_tolerance = 0.4;
-//     cluster.euclidean_min_size = 20;
-//     cluster.euclidean_max_size = 500;
-//     CloudIPtrs clustered_legs = cluster.euclidean(merged_density_cloud);
-
-//     CloudIPtr merged_legs(new CloudI);
-//     for (auto& clustered_cloud : clustered_legs) {
-//         if (clustered_cloud->size()) {
-//             *merged_legs += *clustered_cloud;
-//         }
-//     }
-//     merged_legs->width = 1;
-//     merged_legs->height = merged_legs->size();
-//     save_cloud("merged_legs_5.pcd", merged_legs);
+    //     CloudIPtr merged_legs(new CloudI);
+    //     for (auto& clustered_cloud : clustered_legs) {
+    //         if (clustered_cloud->size()) {
+    //             *merged_legs += *clustered_cloud;
+    //         }
+    //     }
+    //     merged_legs->width = 1;
+    //     merged_legs->height = merged_legs->size();
+    //     save_cloud("merged_legs_5.pcd", merged_legs);
 }
 
 int main(int argc, char** argv) {

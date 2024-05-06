@@ -34,8 +34,8 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 
 #include <objects_detection/cluster_extraction.hpp>
-#include <objects_detection/utils.hpp>
 #include <objects_detection/pcl_utils.hpp>
+#include <objects_detection/utils.hpp>
 
 using namespace std::chrono_literals;
 
@@ -118,11 +118,13 @@ class ObjectDetection : public rclcpp::Node {
     CloudPtr remove_points_beyond_tunnel(CloudPtr cloud);
     CloudIRLPtr filter_with_density_on_x_image(CloudIRLPtr cloud, const Histogram &histogram);
     CloudIRLPtr filter_with_density_on_z_image(CloudIRLPtr cloud, const Histogram &histogram);
-    std::pair<CloudIRPtr, CloudIRPtr> filter_ground_and_get_normal_and_height(CloudIRPtr cloud, int sac_model, int iterations,
-                                                                          double radius, Eigen::Vector3d &normal,
-                                                                          double &ground_height, double eps = 0);
+    std::pair<CloudIRPtr, CloudIRPtr> filter_ground_and_get_normal_and_height(CloudIRPtr cloud, int sac_model,
+                                                                              int iterations, double radius,
+                                                                              Eigen::Vector3d &normal,
+                                                                              double &ground_height, double eps = 0);
 
-    CloudIRPtr align_to_normal(CloudIRPtr cloud, const Eigen::Vector3d &normal, double ground_height, Eigen::Vector3d &rpy);
+    CloudIRPtr align_to_normal(CloudIRPtr cloud, const Eigen::Vector3d &normal, double ground_height,
+                               Eigen::Vector3d &rpy);
 
     CloudPtr get_points_from_bounding_boxes(CloudPtr cloud, BoundingBoxArrayPtr boxes);
 
@@ -138,13 +140,12 @@ class ObjectDetection : public rclcpp::Node {
     BoundingBoxArrayPtr make_bounding_boxes_from_pointclouds(const CloudIRLPtrs &clustered_clouds,
                                                              const std::string &frame_name);
     vision_msgs::msg::ObjectHypothesisWithPose score_conveyor(const vision_msgs::msg::BoundingBox3D bbox);
-    Detection3DArrayPtr detect_conveyors(const CloudIRLPtrs &clustered_clouds,
-                                                             const std::string &frame_name);
-    Detection3DArrayPtr detect_supports(const CloudIRLPtrs &clustered_clouds,
-                                                             const std::string &frame_name);
+    Detection3DArrayPtr detect_conveyors(const CloudIRLPtrs &clustered_clouds, const std::string &frame_name);
+    Detection3DArrayPtr detect_supports(const CloudIRLPtrs &clustered_clouds, const std::string &frame_name);
 
     EllipsoidInfo get_ellipsoid_and_center(CloudIPtr cloud);
-    void save_data_to_yaml(const sensor_msgs::msg::PointCloud2::Ptr &msg, CloudIRLPtrs clouds, Detection3DArrayPtr detections);
+    void save_data_to_yaml(const sensor_msgs::msg::PointCloud2::Ptr &msg, CloudIRLPtrs clouds,
+                           Detection3DArrayPtr detections);
 
     void clear_markers(const std::string &frame_name);
     void clear_durations();

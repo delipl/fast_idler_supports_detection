@@ -7,9 +7,7 @@ from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
-    config_dir = os.path.join(
-        get_package_share_directory("objects_detection"), "config"
-    )
+    config_dir = os.path.join(get_package_share_directory("objects_detection"), "config")
 
     return launch.LaunchDescription(
         [

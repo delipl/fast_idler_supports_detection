@@ -1,8 +1,7 @@
 #pragma once
 #define PCL_NO_PRECOMPILE
 #define PCL_XYZ_POINT_TYPES              \
-    PCL_XYZ_POINT_TYPES \
-    (pcl::PointXYZIR) \
+    PCL_XYZ_POINT_TYPES(pcl::PointXYZIR) \
     (pcl::PointXYZIRL)
 #include <pcl/point_types.h>
 

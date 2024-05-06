@@ -1,10 +1,5 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import time
-import numpy as np
-import argparse
-import matplotlib.pyplot as plt
-import math
 import utils
 import sys
 
@@ -14,20 +9,10 @@ def plot_3D(title: str, cloud: np.array, cloud1: np.array):
     y = cloud[:, 1]
     z = cloud[:, 2]
     ll = cloud[:, 4]
-    i = np.array([])
-    try:
-        i = cloud[:, 3]
-    except IndexError:
-        print("Oops!  That was no valid number.  Try again...")
 
     x1 = cloud1[:, 0]
     y1 = cloud1[:, 1]
     z1 = cloud1[:, 2]
-    i1 = np.array([])
-    try:
-        i1 = cloud1[:, 3]
-    except IndexError:
-        print("Oops!  That was no valid number.  Try again...")
 
     plt.figure("Point Clouds")
     ax = plt.axes(projection="3d")
@@ -40,12 +25,9 @@ def plot_3D(title: str, cloud: np.array, cloud1: np.array):
     ax.yaxis.pane.fill = False
     ax.zaxis.pane.fill = False
     plt.title(title)
-    color = "r"
-    if len(i) > 0:
-        color = i
 
     # Remove points in x1, y1, z1 that are already in x, y, z
-    x1_unique, y1_unique, z1_unique, i1_unique = [], [], [], []
+    x1_unique, y1_unique, z1_unique, _ = [], [], [], []
     for xi1, yi1, zi1 in zip(x1, y1, z1):
         found = False
         for xi, yi, zi in zip(x, y, z):
@@ -72,8 +54,7 @@ def plot_3D(title: str, cloud: np.array, cloud1: np.array):
         marker="o",
         alpha=1,
         depthshade=False,
-        cmap="winter"
-
+        cmap="winter",
     )
     z1_unique = np.array(z1_unique)
     ax.scatter3D(
@@ -83,8 +64,7 @@ def plot_3D(title: str, cloud: np.array, cloud1: np.array):
         c=1 - z1_unique,
         s=[0.1 for _ in range(len(x1_unique))],
         marker="o",
-        cmap="autumn"
-  
+        cmap="autumn",
     )
     ax.set_box_aspect([np.ptp(coord) for coord in [x1, y1, z1]])
     ax.view_init(azim=-155, elev=20)
