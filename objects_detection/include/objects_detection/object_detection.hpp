@@ -83,6 +83,10 @@ class ObjectDetection : public rclcpp::Node {
 
     std::size_t max_detected_legs = 0;
     std::size_t counter = 0;
+
+    std::size_t slope;
+    std::size_t range;
+
     void create_rclcpp_instances();
     void lidar_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 

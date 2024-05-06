@@ -201,7 +201,7 @@ plt.rcParams.update({'font.size': 24})  # Ustawienie globalnie większego rozmia
 
 plt.boxplot([normalization_durations, density_segmentation_durations, 
              supports_clusterization_durations, supports_classification_durations,
-             estimation_durations, processing_durations], labels=step_names, showfliers=False)
+             estimation_durations, processing_durations], labels=step_names, showfliers=True)
 
 plt.ylabel('Duration (seconds)')
 plt.xticks(rotation=45)

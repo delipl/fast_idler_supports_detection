@@ -36,6 +36,8 @@ void ObjectDetection::declare_parameters() {
     declare_parameter("general.ground.histogram.min", "120");
     declare_parameter("general.ground.histogram.max", "350");
     declare_parameter("general.ground.histogram.a", "3.5");
+    declare_parameter("general.ground.histogram.slope", "10");
+    declare_parameter("general.ground.histogram.range", "3");
 
     declare_parameter("outlier_remover.radius_outlier.neighbors_count", "8");
     declare_parameter("outlier_remover.radius_outlier.radius", "0.1");
@@ -76,6 +78,8 @@ void ObjectDetection::get_parameters() {
     ground_histogram_min = std::stoi(get_parameter("general.ground.histogram.min").as_string());
     ground_histogram_max = std::stoi(get_parameter("general.ground.histogram.max").as_string());
     ground_histogram_a = std::stoi(get_parameter("general.ground.histogram.a").as_string());
+    slope = std::stoi(   get_parameter("general.ground.histogram.slope").as_string());
+    range = std::stoi(get_parameter("general.ground.histogram.range").as_string());
 
     conveyor_candidates_clusteler.euclidean_tolerance =
         std::stod(get_parameter("conveyor_candidates_clusteler.euclidean.tolerance").as_string());
@@ -214,7 +218,7 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
         RCLCPP_INFO_STREAM(get_logger(), "Callback took: " << count / 1e6);
         return;
     }
-
+    
     auto clustered_histogram = threshold_histogram(histogram, forward_histogram_min, forward_histogram_max);
     auto low_density_cloud = filter_with_density_on_x_image(merged_conveyors, clustered_histogram);
 
@@ -237,7 +241,7 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
         return;
     }
 
-    auto clustered_ground_histogram = segment_local_peeks(ground_histogram, 10, 3);
+    auto clustered_ground_histogram = segment_local_peeks(ground_histogram, slope, range);
     auto high_density_top_cloud = filter_with_density_on_z_image(merged_conveyors, clustered_ground_histogram);
 
     auto merged_density_cloud{
@@ -466,6 +470,7 @@ Histogram ObjectDetection::create_histogram(CloudIRLPtr cloud, double resolution
 
         ++histogram_image.data[image_height_pos][image_width_pos];
     }
+
     return histogram_image;
 }
 
@@ -565,13 +570,9 @@ Histogram ObjectDetection::threshold_histogram(const Histogram& histogram, std::
 Histogram ObjectDetection::remove_low_density_columns(const Histogram& histogram, std::size_t threshold) {
     auto clustered_histogram(histogram);
 
-    for (std::size_t i = 0; i < clustered_histogram.data[0].size(); ++i) {
-        std::size_t sum = 0;
+    for (std::size_t i = 1; i < clustered_histogram.data[0].size() - 1; ++i) {
         for (std::size_t j = 0; j < clustered_histogram.data.size(); ++j) {
-            sum += clustered_histogram.data[j][i];
-        }
-        if (sum < threshold) {
-            for (std::size_t j = 0; j < clustered_histogram.data.size(); ++j) {
+            if (clustered_histogram.data[j][i + 1] != 0 and clustered_histogram.data[j][i - 1] != 0) {
                 clustered_histogram.data[j][i] = 0;
             }
         }
