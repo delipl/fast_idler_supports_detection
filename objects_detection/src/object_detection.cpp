@@ -151,6 +151,7 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
 
     auto frame = msg->header.frame_id;
     auto cloud_raw = pcl_utils::convert_point_cloud2_to_cloud_ptr<PointIR>(msg);
+    original_points_count = cloud_raw->size();
 
     auto cloud = pcl_utils::remove_far_points_from_ros2bag_converter_bug<PointIR>(cloud_raw, 5.0);
     filter_further_than_5m_points_count = cloud->size();
@@ -351,6 +352,7 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
             pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(base_linked, "base_link", this));
     }
     save_data_to_yaml(msg, base_linked_clouds, supports_candidates_detection_3d_msg);
+    save_point_reduction_counts(msg);
 
     auto end = std::chrono::high_resolution_clock::now();
     auto count = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
@@ -886,6 +888,27 @@ void ObjectDetection::save_data_to_yaml(const sensor_msgs::msg::PointCloud2::Ptr
         auto end = std::chrono::high_resolution_clock::now();
         auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
         RCLCPP_DEBUG_STREAM(get_logger(), "Data saved to file. Saving took: " << microseconds / 10e3 << "ms");
+    } else {
+        RCLCPP_ERROR(get_logger(), "Cannot save data!");
+    }
+}
+
+void ObjectDetection::save_point_reduction_counts(const sensor_msgs::msg::PointCloud2::Ptr& msg) {
+    YAML::Node frame_node;
+    YAML::Node yaml_node;
+    frame_node["timestamp"]["sec"] = msg->header.stamp.sec;
+    frame_node["timestamp"]["nanosec"] = msg->header.stamp.nanosec;
+
+    frame_node["original_points_count"] = original_points_count;
+    frame_node["filter_further_than_5m_points_count"] = filter_further_than_5m_points_count;
+    frame_node["filter_ground_points_count"] = filter_ground_points_count;
+    frame_node["roi_points_count"] = roi_points_count;
+    yaml_node.push_back(frame_node);
+
+    std::ofstream file(filename+"_counts", std::ios::app);
+
+    if (file.is_open()) {
+        file << yaml_node << std::endl;
     } else {
         RCLCPP_ERROR(get_logger(), "Cannot save data!");
     }

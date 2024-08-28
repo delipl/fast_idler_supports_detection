@@ -144,8 +144,11 @@ class ObjectDetection : public rclcpp::Node {
     Detection3DArrayPtr detect_supports(const CloudIRLPtrs &clustered_clouds, const std::string &frame_name);
 
     EllipsoidInfo get_ellipsoid_and_center(CloudIPtr cloud);
+
     void save_data_to_yaml(const sensor_msgs::msg::PointCloud2::Ptr &msg, CloudIRLPtrs clouds,
                            Detection3DArrayPtr detections);
+
+    void save_point_reduction_counts(const sensor_msgs::msg::PointCloud2::Ptr& msg);
 
     void clear_markers(const std::string &frame_name);
     void clear_durations();
