@@ -1,4 +1,11 @@
+# Initialize repository
+```bash
+git clone git@git.kcir.pwr.edu.pl:jdelicat/idlers_detection.git --recursive
+```
+
 # Usage
+
+ros2 run tf2_ros static_transform_publisher 0.410 0 1.350 0 0.454 0 base_link velodyne
 
 Running the algorithm and save output to the yaml file:
 ```bash
