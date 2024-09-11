@@ -11,6 +11,7 @@ class Feature:
         self.points_count = points_count
         self.sec = sec
         self.nanosec = nanosec
+        self.label = None
 
     def to_array(self):
         # Stack attributes vertically and then flatten
@@ -71,6 +72,7 @@ def distance(bbox_center, point):
 
 # Changed to check how far the the  poin t is
 def is_point_in_bounding_box(point, box_size, bbox_center) -> bool:
+    # print (f"Point: {point[0]}, {point[1]}, bbox_center: {bbox_center[0]}, {bbox_center[1]}, {distance(bbox_center, point)}")
     return abs(distance(bbox_center, point)) < 0.2
     # for i in range(2):
     #     # result = (point[i] < (bbox_center[i] - box_size[i]/2.0)) or (point[i] > (bbox_center[i] + box_size[i]/2.0))

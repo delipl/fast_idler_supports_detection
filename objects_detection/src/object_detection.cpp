@@ -134,7 +134,7 @@ void ObjectDetection::create_rclcpp_instances() {
 void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     auto start = std::chrono::high_resolution_clock::now();
     clear_durations();
-    get_parameters();
+    // get_parameters();
     RCLCPP_DEBUG(get_logger(), "Pointcloud callback.");
     if (msg->width * msg->height == 0) {
         RCLCPP_WARN(get_logger(), "Empty pointcloud skipping...");
@@ -357,7 +357,8 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     auto end = std::chrono::high_resolution_clock::now();
     auto count = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 
-    RCLCPP_INFO_STREAM(get_logger(), "Callback took: " << count / 1e6);
+    RCLCPP_INFO_STREAM(get_logger(), "Callback took: " << count / 1e6 << " for pointcloud at " << msg->header.stamp.sec
+                                                        << "." << msg->header.stamp.nanosec);
 }
 
 void ObjectDetection::clear_markers(const std::string& frame_name) {
@@ -740,8 +741,8 @@ std::pair<CloudIRPtr, CloudIRPtr> ObjectDetection::filter_ground_and_get_normal_
     extract.setInputCloud(cloud);
     extract.setIndices(inliers);
     extract.filter(*without_ground);
-    extract.setNegative(false);
-    extract.filter(*ground);
+    // extract.setNegative(false);
+    // extract.filter(*ground);
 
     normal << coefficients->values[0], coefficients->values[1], coefficients->values[2];
     ground_height = coefficients->values[3];

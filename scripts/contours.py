@@ -75,7 +75,7 @@ def add_levels_to_plot(ax):
             Z[j, i] = f(X[j, i], Y[j, i])
 
     # Plot the contour lines
-    contour = ax.contourf(X, Y, Z, levels=np.arange(0, 10, 1), cmap="coolwarm")
+    contour = ax.contourf(X, Y, Z, levels=np.arange(1, 9, 1), cmap="coolwarm")
     # Add labels with function values to the contour lines
     ax.clabel(contour, inline=True, fontsize=8, fmt="%1.0f")
     plt.colorbar(contour, label='f(x, y)')
