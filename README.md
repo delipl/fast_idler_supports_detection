@@ -1,7 +1,34 @@
-# Initialize repository
+# fast_idler_supports_detection
+
+This package provides tools for fast idler supports detection using ROS 2 with PCL and density histograms.
+
+## Installation
+
+Clone the repository and its submodules:
+
 ```bash
 git clone git@git.kcir.pwr.edu.pl:jdelicat/idlers_detection.git --recursive
 ```
+
+## Dependencies
+
+Install dependencies using `rosdep`:
+
+```bash
+rosdep install --from-paths src --ignore-src -r -y
+colcon  build --symlink-install &&  source install/setup.bash
+```
+
+## Usage
+
+### Running the Algorithm
+
+Run the detection algorithm and save the output to a YAML file:
+
+```bash
+ros2 launch fast_idler_supports_detection fast_idler_supports_detection.launch.py
+```
+
 
 # Usage
 

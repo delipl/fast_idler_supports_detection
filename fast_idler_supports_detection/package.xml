@@ -3,14 +3,19 @@
 <package format="3">
   <name>fast_idler_supports_detection</name>
   <version>0.1.0</version>
-  <description>TODO: Package description</description>
+  <description>Package for fast idler supports detection in various environments using PCL and density histograms.</description>
   <maintainer email="delicat.kuba@gmail.com">Jakub Delicat</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <build_depend>libpcl</build_depend>
+  <build_depend>rclcpp</build_depend>
+  <build_depend>libpcl</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>visualization_msgs</build_depend>
+  <build_depend>yaml-cpp</build_depend>
   <build_depend>vision_msgs</build_depend>
 
-  <depend>lidarslam</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
