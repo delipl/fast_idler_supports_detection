@@ -17,7 +17,6 @@ def cart_to_sphere(x, y, z):
 
 
 def rotate_and_translate(points, angle, d):
-    # Obracanie punktów wokół osi y o 0.5 radianów
     rotation_matrix = np.array(
         [
             [np.cos(angle), 0, np.sin(angle)],
@@ -28,7 +27,6 @@ def rotate_and_translate(points, angle, d):
 
     rotated_points = np.dot(points, rotation_matrix.T)
 
-    # Przesuwanie punktów wzdłuż osi z o -1.34
     translation_vector = np.array([0, 0, d])
     translated_points = rotated_points + translation_vector
 

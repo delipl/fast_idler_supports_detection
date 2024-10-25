@@ -14,7 +14,7 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
-#include <objects_detection/point_types.hpp>
+#include <fast_idler_supports_detection/point_types.hpp>
 
 namespace pcl_utils {
 
@@ -22,7 +22,7 @@ template <typename PointT>
 void save_cloud(const std::string &name, typename pcl::PointCloud<PointT>::Ptr cloud) {
     pcl::PCDWriter writer;
 
-    std::string path_to_pcds = ament_index_cpp::get_package_share_directory("objects_detection");
+    std::string path_to_pcds = ament_index_cpp::get_package_share_directory("fast_idler_supports_detection");
     path_to_pcds += std::string("/test_data/");
     auto path = path_to_pcds + std::string(name);
     writer.write<PointT>(path, *cloud);

@@ -1,4 +1,4 @@
-#include <objects_detection/point_types.hpp>
+#include <fast_idler_supports_detection/point_types.hpp>
 
 namespace pcl {
 std::ostream& operator<<(std::ostream& os, const pcl::PointXYZIR& p) {

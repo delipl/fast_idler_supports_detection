@@ -30,9 +30,7 @@ class DataSplitter:
             return True
         return False
 
-    def use_timestamp_dir(
-        self, node: yaml.Node, split_data_path: os.PathLike
-    ) -> os.PathLike:
+    def use_timestamp_dir(self, node: yaml.Node, split_data_path: os.PathLike) -> os.PathLike:
         timestamp = node["timestamp"]
         timestamp_folder_name = str(timestamp["sec"]) + "_" + str(timestamp["nanosec"])
         timestamp_path = os.path.join(split_data_path, timestamp_folder_name)
@@ -40,10 +38,7 @@ class DataSplitter:
 
         return timestamp_path
 
-    def save_object_to_file(
-        self, obj: yaml.Node, timestamp_path: os.PathLike, name: str
-    ) -> None:
-
+    def save_object_to_file(self, obj: yaml.Node, timestamp_path: os.PathLike, name: str) -> None:
         object_all_path = os.path.join(
             timestamp_path,
             "all",
@@ -69,9 +64,7 @@ class DataSplitter:
             yaml.dump(obj, file, default_flow_style=False)
 
     def read_yaml(self, data_file_path: str, data_file_name: str) -> yaml.Node:
-        with open(
-            data_file_path + data_file_name + ".yaml", "r", encoding="utf-8"
-        ) as file:
+        with open(data_file_path + data_file_name + ".yaml", "r", encoding="utf-8") as file:
             return yaml.safe_load(file)
 
     def save_durations(self, timestamp_path: os.PathLike, node: yaml.Node):
@@ -79,7 +72,7 @@ class DataSplitter:
         with open(durations_path, "w", encoding="utf-8") as file:
             yaml.dump(node, file, default_flow_style=False)
 
-    def split_data_from_object_detection_node(
+    def split_data_from_fast_idler_supports_detection_node(
         self, data_file_path: str, data_file_name: str
     ):
         data = self.read_yaml(data_file_path, data_file_name)
@@ -88,9 +81,7 @@ class DataSplitter:
         self.try_to_mkdir(split_data_path)
 
         for data_at_timestamp in data:
-            timestamp_path = self.use_timestamp_dir(
-                copy(data_at_timestamp), split_data_path
-            )
+            timestamp_path = self.use_timestamp_dir(copy(data_at_timestamp), split_data_path)
             timestamp_sec = data_at_timestamp["timestamp"]["sec"]
             timestamp_nanosec = data_at_timestamp["timestamp"]["nanosec"]
 
@@ -113,7 +104,7 @@ class DataSplitter:
                 index += 1
 
     def split_node_data(self):
-        self.split_data_from_object_detection_node(
+        self.split_data_from_fast_idler_supports_detection_node(
             self.data_file_path, self.data_file_name
         )
 
@@ -141,14 +132,10 @@ class DataSplitter:
             self.save_object_to_file(selection, timestamp_path, "object_" + str(index))
 
     def split_rviz_selection_data(self):
-        self.split_data_from_rviz_selection_node(
-            self.data_file_path, self.data_file_name
-        )
+        self.split_data_from_rviz_selection_node(self.data_file_path, self.data_file_name)
 
     def merge_features_into_csv(self) -> None:
-        split_data_path = os.path.join(
-            self.data_file_path, self.data_file_name + "_split"
-        )
+        split_data_path = os.path.join(self.data_file_path, self.data_file_name + "_split")
         list_of_timestamp_dirs = os.listdir(split_data_path)
 
         csv_filename = os.path.join(split_data_path, "features.csv")
@@ -177,21 +164,19 @@ class DataSplitter:
             features_path = os.path.join(split_data_path, timestamp_dir, "features")
             if not os.path.isfile(timestamp_dir):
                 print(f"Looking for files at {features_path}")
-                
+
                 try:
                     objects_files = os.listdir(features_path)
-                except  FileNotFoundError:
+                except FileNotFoundError:
                     print(f"No files found at {features_path}")
                     continue
-                
+
                 for object_file in objects_files:
                     features_path = validate_path(features_path)
                     object_file = validate_data_name(object_file)
 
                     features = self.read_yaml(features_path, object_file)
-                    with open(
-                        csv_filename, mode="a", newline="\n", encoding="utf-8"
-                    ) as file:
+                    with open(csv_filename, mode="a", newline="\n", encoding="utf-8") as file:
                         writer = csv.writer(file)
                         csv_data = [
                             features["timestamp"]["sec"],
@@ -208,7 +193,5 @@ class DataSplitter:
                         writer.writerow(csv_data)
 
     def clear(self) -> None:
-        split_data_path = os.path.join(
-            self.data_file_path, self.data_file_name + "_split"
-        )
+        split_data_path = os.path.join(self.data_file_path, self.data_file_name + "_split")
         shutil.rmtree(split_data_path)

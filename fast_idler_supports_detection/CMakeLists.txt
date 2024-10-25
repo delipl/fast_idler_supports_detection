@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(objects_detection)
+project(fast_idler_supports_detection)
 
 set(CMAKE_CXX_STANDARD 17)
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -77,40 +77,17 @@ ament_export_dependencies(
   vision_msgs
 )
 
-# if(BUILD_TESTING)
-#   find_package(ament_cmake_gmock REQUIRED)
-#   ament_add_gmock(${PROJECT_NAME}_tests
-#     test/test_tutorial.cpp
-#     src/object_detection.cpp
-#   )
-#   target_include_directories(${PROJECT_NAME}_tests PUBLIC
-#     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-#     $<INSTALL_INTERFACE:include>
-#   )
-#   ament_target_dependencies(${PROJECT_NAME}_tests
-#     rclcpp
-#     sensor_msgs
-#     pcl_conversions
-#   )
-#   target_link_libraries(${PROJECT_NAME}_tests ${PCL_LIBRARIES} detection_library)
-# endif()
-
 install(DIRECTORY
-  test_data
   launch
   DESTINATION share/${PROJECT_NAME}
 )
 
-add_executable(object_detection
-  src/object_detection.cpp
-  src/node.cpp
+add_executable(${PROJECT_NAME}
+  src/fast_idler_supports_detection.cpp
+  src/fast_idler_supports_detection_node.cpp
 )
 
-# add_executable(save_pointcloud
-#   src/save_pointcloud.cpp
-# )
-
-ament_target_dependencies(object_detection
+ament_target_dependencies(${PROJECT_NAME}
   rclcpp
   sensor_msgs
   pcl_conversions
@@ -118,33 +95,19 @@ ament_target_dependencies(object_detection
   vision_msgs
 )
 
-# ament_target_dependencies(save_pointcloud
-#   rclcpp
-#   sensor_msgs
-#   pcl_conversions
-# )
-
 target_include_directories(
-  object_detection
+  ${PROJECT_NAME}
   PUBLIC
   include
 )
 
-# target_include_directories(
-#   save_pointcloud
-#   PUBLIC
-#   include
-# )
 
-target_link_libraries(object_detection ${PCL_LIBRARIES} detection_library)
-# target_link_libraries(save_pointcloud ${PCL_LIBRARIES} detection_library)
+target_link_libraries(${PROJECT_NAME} ${PCL_LIBRARIES} detection_library)
 
 install(TARGETS
-  object_detection
-  # save_pointcloud
+${PROJECT_NAME}
   DESTINATION lib/${PROJECT_NAME})
 
-ament_python_install_package(${PROJECT_NAME})
 install(PROGRAMS
   scripts/clasification_analizer.py
   scripts/histogram.py

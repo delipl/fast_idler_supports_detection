@@ -11,16 +11,6 @@ repos:
       - id: check-added-large-files
       - id: check-ast
       - id: check-json
-      # Also cpp tests
-      # - id: name-tests-test
-      #   files: ^.*\/test\/.*$
-      #   args: [--pytest-test-first]
-
-  - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.6
-    hooks:
-      - id: codespell
-        entry: codespell *
 
   - repo: https://github.com/jumanjihouse/pre-commit-hook-yamlfmt
     rev: 0.2.3

@@ -1,14 +1,14 @@
+#include <fast_idler_supports_detection/fast_idler_supports_detection.hpp>
 #include <fstream>
-#include <objects_detection/object_detection.hpp>
 
-ObjectDetection::ObjectDetection() : Node("object_detection") {
+FastIdlerSupportsDetection::FastIdlerSupportsDetection() : Node("fast_idler_supports_detection") {
     declare_parameters();
     get_parameters();
     create_rclcpp_instances();
     std::ofstream file(filename);
 }
 
-void ObjectDetection::declare_parameters() {
+void FastIdlerSupportsDetection::declare_parameters() {
     // FIXME: Double parameters are strings to work with rqt dynamic reconfigure.
     declare_parameter("general.filename", "output.yaml");
     declare_parameter("general.debug", "1");
@@ -51,7 +51,7 @@ void ObjectDetection::declare_parameters() {
     declare_parameter("support_candidates_clusteler.euclidean.max_size", "500");
 }
 
-void ObjectDetection::get_parameters() {
+void FastIdlerSupportsDetection::get_parameters() {
     debug = std::stoi(get_parameter("general.debug").as_string());
     filename = get_parameter("general.filename").as_string();
     pointcloud_topic_name = get_parameter("general.pointcloud_topic_name").as_string();
@@ -96,7 +96,7 @@ void ObjectDetection::get_parameters() {
         std::stoi(get_parameter("support_candidates_clusteler.euclidean.min_size").as_string());
 }
 
-void ObjectDetection::create_rclcpp_instances() {
+void FastIdlerSupportsDetection::create_rclcpp_instances() {
     transformed_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/rotated", 10);
     ground_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/ground_pub_", 10);
     without_ground_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("inz/without_ground_pub_", 10);
@@ -128,10 +128,10 @@ void ObjectDetection::create_rclcpp_instances() {
     using std::placeholders::_1;
     const std::string& topic_name = pointcloud_topic_name;
     pointcloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-        topic_name, 10, std::bind(&ObjectDetection::lidar_callback, this, _1));
+        topic_name, 10, std::bind(&FastIdlerSupportsDetection::lidar_callback, this, _1));
 }
 
-void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
+void FastIdlerSupportsDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     auto start = std::chrono::high_resolution_clock::now();
     clear_durations();
     // get_parameters();
@@ -165,11 +165,10 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
             cloud_for_ground_detection->push_back(point);
         }
     }
-    auto filtered_ground_clouds =
+    auto [ground, without_ground] =
         filter_ground_and_get_normal_and_height(cloud_for_ground_detection, pcl::SACMODEL_PLANE, 800,
                                                 ground_level_height, std::ref(normal_vec), std::ref(ground_height));
-    auto& ground = filtered_ground_clouds.first;
-    auto& without_ground = filtered_ground_clouds.second;
+
     filter_ground_points_count = without_ground->size();
 
     Eigen::Vector3d rpy;
@@ -297,10 +296,7 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     supports_classification_duration_count = std::chrono::duration_cast<std::chrono::microseconds>(
                                                  supports_classification_end - supports_classification_start)
                                                  .count();
-    // if (debug and merged_supports_candidates->size()) {
-    //     pcl_utils::save_cloud<PointIRL>("merged_supports_candidates.pcd", merged_supports_candidates);
-    // }
-    // ============================================
+
     auto estimation_start = std::chrono::high_resolution_clock::now();
 
     CloudIRLPtrs base_linked_clouds;
@@ -316,12 +312,6 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     auto estimation_end = std::chrono::high_resolution_clock::now();
     estimation_duration_count =
         std::chrono::duration_cast<std::chrono::microseconds>(estimation_end - estimation_start).count();
-
-    // if (debug and base_linked->size()) {
-    //     pcl_utils::save_cloud<PointIRL>("base_linked.pcd", base_linked);
-    // }
-
-    // ============================================
 
     // Publish
     if (debug) {
@@ -351,6 +341,7 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
         clustered_supports_candidates_base_link_pub_->publish(
             pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(base_linked, "base_link", this));
     }
+
     save_data_to_yaml(msg, base_linked_clouds, supports_candidates_detection_3d_msg);
     save_point_reduction_counts(msg);
 
@@ -358,10 +349,10 @@ void ObjectDetection::lidar_callback(const rclcppCloudSharedPtr msg) {
     auto count = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 
     RCLCPP_INFO_STREAM(get_logger(), "Callback took: " << count / 1e6 << " for pointcloud at " << msg->header.stamp.sec
-                                                        << "." << msg->header.stamp.nanosec);
+                                                       << "." << msg->header.stamp.nanosec);
 }
 
-void ObjectDetection::clear_markers(const std::string& frame_name) {
+void FastIdlerSupportsDetection::clear_markers(const std::string& frame_name) {
     vision_msgs::msg::Detection3DArray empty;
     empty.header.frame_id = frame_name;
     empty.header.stamp = get_clock()->now();
@@ -369,7 +360,7 @@ void ObjectDetection::clear_markers(const std::string& frame_name) {
     supports_detection_3d_pub_->publish(empty);
 }
 
-Histogram ObjectDetection::create_top_histogram(CloudIRLPtr cloud, double resolution) {
+Histogram FastIdlerSupportsDetection::create_top_histogram(CloudIRLPtr cloud, double resolution) {
     Histogram histogram_image;
     auto compare_y = [](const PointIRL lhs, const PointIRL rhs) { return lhs.y < rhs.y; };
     auto compare_z = [](const PointIRL lhs, const PointIRL rhs) { return lhs.z < rhs.z; };
@@ -432,7 +423,7 @@ Histogram ObjectDetection::create_top_histogram(CloudIRLPtr cloud, double resolu
     return histogram_image;
 }
 
-Histogram ObjectDetection::create_histogram(CloudIRLPtr cloud, double resolution) {
+Histogram FastIdlerSupportsDetection::create_histogram(CloudIRLPtr cloud, double resolution) {
     Histogram histogram_image;
     auto compare_y = [](const PointIRL lhs, const PointIRL rhs) { return lhs.y < rhs.y; };
     auto compare_z = [](const PointIRL lhs, const PointIRL rhs) { return lhs.z < rhs.z; };
@@ -477,7 +468,7 @@ Histogram ObjectDetection::create_histogram(CloudIRLPtr cloud, double resolution
     return histogram_image;
 }
 
-sensor_msgs::msg::Image ObjectDetection::create_image_from_histogram(const Histogram& histogram) {
+sensor_msgs::msg::Image FastIdlerSupportsDetection::create_image_from_histogram(const Histogram& histogram) {
     sensor_msgs::msg::Image image_msg;
     image_msg.height = histogram.image_height;
     image_msg.width = histogram.image_width;
@@ -509,7 +500,7 @@ sensor_msgs::msg::Image ObjectDetection::create_image_from_histogram(const Histo
     return image_msg;
 }
 
-CloudIRLPtr ObjectDetection::filter_with_density_on_x_image(CloudIRLPtr cloud, const Histogram& histogram) {
+CloudIRLPtr FastIdlerSupportsDetection::filter_with_density_on_x_image(CloudIRLPtr cloud, const Histogram& histogram) {
     const auto width = histogram.width;
     const auto height = histogram.height;
     const auto image_width = histogram.image_width;
@@ -533,7 +524,7 @@ CloudIRLPtr ObjectDetection::filter_with_density_on_x_image(CloudIRLPtr cloud, c
     return low_density_cloud;
 }
 
-CloudIRLPtr ObjectDetection::filter_with_density_on_z_image(CloudIRLPtr cloud, const Histogram& histogram) {
+CloudIRLPtr FastIdlerSupportsDetection::filter_with_density_on_z_image(CloudIRLPtr cloud, const Histogram& histogram) {
     const auto width = histogram.width;
     const auto height = histogram.height;
     const auto image_width = histogram.image_width;
@@ -557,7 +548,8 @@ CloudIRLPtr ObjectDetection::filter_with_density_on_z_image(CloudIRLPtr cloud, c
     return low_density_cloud;
 }
 
-Histogram ObjectDetection::threshold_histogram(const Histogram& histogram, std::size_t min, std::size_t max) {
+Histogram FastIdlerSupportsDetection::threshold_histogram(const Histogram& histogram, std::size_t min,
+                                                          std::size_t max) {
     auto clustered_histogram(histogram);
     for (auto& col : clustered_histogram.data) {
         for (auto& density : col) {
@@ -570,7 +562,7 @@ Histogram ObjectDetection::threshold_histogram(const Histogram& histogram, std::
     return clustered_histogram;
 }
 
-Histogram ObjectDetection::remove_low_density_columns(const Histogram& histogram, std::size_t threshold) {
+Histogram FastIdlerSupportsDetection::remove_low_density_columns(const Histogram& histogram, std::size_t threshold) {
     auto clustered_histogram(histogram);
 
     for (std::size_t i = 1; i < clustered_histogram.data[0].size() - 1; ++i) {
@@ -583,7 +575,7 @@ Histogram ObjectDetection::remove_low_density_columns(const Histogram& histogram
     return clustered_histogram;
 }
 
-BoundingBoxArrayPtr ObjectDetection::make_bounding_boxes_from_pointclouds(
+BoundingBoxArrayPtr FastIdlerSupportsDetection::make_bounding_boxes_from_pointclouds(
     const CloudIRLPtrs& clustered_supports_candidates, const std::string& frame_name) {
     BoundingBoxArrayPtr bounding_boxes(new vision_msgs::msg::BoundingBox3DArray);
     for (const auto& leg : clustered_supports_candidates) {
@@ -617,7 +609,8 @@ BoundingBoxArrayPtr ObjectDetection::make_bounding_boxes_from_pointclouds(
     return bounding_boxes;
 }
 
-vision_msgs::msg::ObjectHypothesisWithPose ObjectDetection::score_conveyor(const vision_msgs::msg::BoundingBox3D bbox) {
+vision_msgs::msg::ObjectHypothesisWithPose FastIdlerSupportsDetection::score_conveyor(
+    const vision_msgs::msg::BoundingBox3D bbox) {
     // Left and right side conveyors
     double conveyor_height = 0.6 - ground_level_height;
     double conveyor_position_z = conveyor_height / 2.0 + ground_level_height;
@@ -640,8 +633,8 @@ vision_msgs::msg::ObjectHypothesisWithPose ObjectDetection::score_conveyor(const
     return object;
 }
 
-Detection3DArrayPtr ObjectDetection::detect_conveyors(const CloudIRLPtrs& clustered_supports_candidates,
-                                                      const std::string& frame_name) {
+Detection3DArrayPtr FastIdlerSupportsDetection::detect_conveyors(const CloudIRLPtrs& clustered_supports_candidates,
+                                                                 const std::string& frame_name) {
     auto bboxes = make_bounding_boxes_from_pointclouds(clustered_supports_candidates, frame_name);
     Detection3DArrayPtr detections(new vision_msgs::msg::Detection3DArray);
     detections->header.frame_id = frame_name;
@@ -659,8 +652,8 @@ Detection3DArrayPtr ObjectDetection::detect_conveyors(const CloudIRLPtrs& cluste
     return detections;
 }
 
-Detection3DArrayPtr ObjectDetection::detect_supports(const CloudIRLPtrs& clustered_supports_candidates,
-                                                     const std::string& frame_name) {
+Detection3DArrayPtr FastIdlerSupportsDetection::detect_supports(const CloudIRLPtrs& clustered_supports_candidates,
+                                                                const std::string& frame_name) {
     auto bboxes = make_bounding_boxes_from_pointclouds(clustered_supports_candidates, frame_name);
     Detection3DArrayPtr detections(new vision_msgs::msg::Detection3DArray);
     detections->header.frame_id = frame_name;
@@ -713,7 +706,7 @@ Detection3DArrayPtr ObjectDetection::detect_supports(const CloudIRLPtrs& cluster
     return detections;
 }
 
-std::pair<CloudIRPtr, CloudIRPtr> ObjectDetection::filter_ground_and_get_normal_and_height(
+std::pair<CloudIRPtr, CloudIRPtr> FastIdlerSupportsDetection::filter_ground_and_get_normal_and_height(
     CloudIRPtr cloud, int sac_model, int iterations, double radius, Eigen::Vector3d& normal, double& ground_height,
     double eps) {
     // Segment ground
@@ -749,8 +742,8 @@ std::pair<CloudIRPtr, CloudIRPtr> ObjectDetection::filter_ground_and_get_normal_
     return {ground, without_ground};
 }
 
-CloudIRPtr ObjectDetection::align_to_normal(CloudIRPtr cloud, const Eigen::Vector3d& normal, double ground_height,
-                                            Eigen::Vector3d& rpy) {
+CloudIRPtr FastIdlerSupportsDetection::align_to_normal(CloudIRPtr cloud, const Eigen::Vector3d& normal,
+                                                       double ground_height, Eigen::Vector3d& rpy) {
     const auto& up_vector = Eigen::Vector3d::UnitZ();
     Eigen::Vector3d axis = normal.cross(up_vector).normalized();
     float angle = acos(normal.dot(up_vector) / (normal.norm() * up_vector.norm()));
@@ -766,7 +759,7 @@ CloudIRPtr ObjectDetection::align_to_normal(CloudIRPtr cloud, const Eigen::Vecto
     return transformed_cloud;
 }
 
-ObjectDetection::EllipsoidInfo ObjectDetection::get_ellipsoid_and_center(CloudIPtr cloud) {
+FastIdlerSupportsDetection::EllipsoidInfo FastIdlerSupportsDetection::get_ellipsoid_and_center(CloudIPtr cloud) {
     const float& max_value = std::numeric_limits<float>::max();
     const float& min_value = -std::numeric_limits<float>::max();
     Point max_coords{min_value, min_value, min_value};
@@ -793,8 +786,8 @@ ObjectDetection::EllipsoidInfo ObjectDetection::get_ellipsoid_and_center(CloudIP
     return {ellipsoid, center, "unknown"};
 }
 
-void ObjectDetection::save_data_to_yaml(const sensor_msgs::msg::PointCloud2::Ptr& msg, CloudIRLPtrs clouds,
-                                        Detection3DArrayPtr detections) {
+void FastIdlerSupportsDetection::save_data_to_yaml(const sensor_msgs::msg::PointCloud2::Ptr& msg, CloudIRLPtrs clouds,
+                                                   Detection3DArrayPtr detections) {
     YAML::Node frame_node;
     YAML::Node yaml_node;
     std::size_t detected_count;
@@ -894,7 +887,7 @@ void ObjectDetection::save_data_to_yaml(const sensor_msgs::msg::PointCloud2::Ptr
     }
 }
 
-void ObjectDetection::save_point_reduction_counts(const sensor_msgs::msg::PointCloud2::Ptr& msg) {
+void FastIdlerSupportsDetection::save_point_reduction_counts(const sensor_msgs::msg::PointCloud2::Ptr& msg) {
     YAML::Node frame_node;
     YAML::Node yaml_node;
     frame_node["timestamp"]["sec"] = msg->header.stamp.sec;
@@ -906,7 +899,7 @@ void ObjectDetection::save_point_reduction_counts(const sensor_msgs::msg::PointC
     frame_node["roi_points_count"] = roi_points_count;
     yaml_node.push_back(frame_node);
 
-    std::ofstream file(filename+"_counts", std::ios::app);
+    std::ofstream file(filename + "_counts", std::ios::app);
 
     if (file.is_open()) {
         file << yaml_node << std::endl;
@@ -915,7 +908,8 @@ void ObjectDetection::save_point_reduction_counts(const sensor_msgs::msg::PointC
     }
 }
 
-MarkersPtr ObjectDetection::make_markers_from_ellipsoids_infos(const std::list<EllipsoidInfo>& ellipsoids_infos) {
+MarkersPtr FastIdlerSupportsDetection::make_markers_from_ellipsoids_infos(
+    const std::list<EllipsoidInfo>& ellipsoids_infos) {
     auto marker_array_msg = std::make_shared<visualization_msgs::msg::MarkerArray>();
     std::size_t count_ = 0;
 
@@ -970,12 +964,13 @@ MarkersPtr ObjectDetection::make_markers_from_ellipsoids_infos(const std::list<E
     return marker_array_msg;
 }
 
-std::ostream& operator<<(std::ostream& os, const ObjectDetection::Ellipsoid& ellipsoid) {
+std::ostream& operator<<(std::ostream& os, const FastIdlerSupportsDetection::Ellipsoid& ellipsoid) {
     os << "Ellipsoid(" << ellipsoid.radius_x << ", " << ellipsoid.radius_y << ", " << ellipsoid.radius_z << ")";
     return os;
 }
 
-Histogram ObjectDetection::segment_local_peeks(const Histogram& histogram, std::size_t slope, std::size_t range) {
+Histogram FastIdlerSupportsDetection::segment_local_peeks(const Histogram& histogram, std::size_t slope,
+                                                          std::size_t range) {
     Histogram segmented_histogram(histogram);
     for (auto i = range; i < histogram.data.size() - range; ++i) {
         for (auto j = 0u; j < histogram.data[i].size(); ++j) {
@@ -990,7 +985,7 @@ Histogram ObjectDetection::segment_local_peeks(const Histogram& histogram, std::
     return segmented_histogram;
 }
 
-void ObjectDetection::clear_durations() {
+void FastIdlerSupportsDetection::clear_durations() {
     normalization_duration_count = 0;
     conveyor_clusterization_duration_count = 0;
     conveyor_classification_duration_count = 0;

@@ -33,15 +33,15 @@
 #include <vision_msgs/msg/detection3_d_array.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
-#include <objects_detection/cluster_extraction.hpp>
-#include <objects_detection/pcl_utils.hpp>
-#include <objects_detection/utils.hpp>
+#include <fast_idler_supports_detection/cluster_extraction.hpp>
+#include <fast_idler_supports_detection/pcl_utils.hpp>
+#include <fast_idler_supports_detection/utils.hpp>
 
 using namespace std::chrono_literals;
 
-class ObjectDetection : public rclcpp::Node {
+class FastIdlerSupportsDetection : public rclcpp::Node {
    public:
-    ObjectDetection();
+    FastIdlerSupportsDetection();
     struct Ellipsoid {
         double radius_x{1.0};
         double radius_y{1.0};
@@ -53,8 +53,7 @@ class ObjectDetection : public rclcpp::Node {
         std::string class_name;
     };
 
-    //    private:
-
+   private:
     void declare_parameters();
     void get_parameters();
 
@@ -148,7 +147,7 @@ class ObjectDetection : public rclcpp::Node {
     void save_data_to_yaml(const sensor_msgs::msg::PointCloud2::Ptr &msg, CloudIRLPtrs clouds,
                            Detection3DArrayPtr detections);
 
-    void save_point_reduction_counts(const sensor_msgs::msg::PointCloud2::Ptr& msg);
+    void save_point_reduction_counts(const sensor_msgs::msg::PointCloud2::Ptr &msg);
 
     void clear_markers(const std::string &frame_name);
     void clear_durations();
@@ -170,4 +169,4 @@ class ObjectDetection : public rclcpp::Node {
 };
 
 // Przeładowanie operatora << dla struktury Ellipsoid
-std::ostream &operator<<(std::ostream &os, const ObjectDetection::Ellipsoid &ellipsoid);
+std::ostream &operator<<(std::ostream &os, const FastIdlerSupportsDetection::Ellipsoid &ellipsoid);

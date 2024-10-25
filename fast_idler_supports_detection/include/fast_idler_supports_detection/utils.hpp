@@ -13,7 +13,7 @@
 #include <vision_msgs/msg/detection3_d_array.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
-#include <objects_detection/point_types.hpp>
+#include <fast_idler_supports_detection/point_types.hpp>
 
 using Point = pcl::PointXYZ;
 using Cloud = pcl::PointCloud<Point>;
@@ -44,23 +44,15 @@ using CloudNormalPtr = CloudNormal::Ptr;
 using rclcppCloud = sensor_msgs::msg::PointCloud2;
 using rclcppCloudSharedPtr = rclcppCloud::SharedPtr;
 
-// using Histogram = std::vector<std::vector<std::size_t>>;
 using MarkersPtr = std::shared_ptr<visualization_msgs::msg::MarkerArray>;
 using BoundingBox = vision_msgs::msg::BoundingBox3D;
 using BoundingBoxArrayPtr = std::shared_ptr<vision_msgs::msg::BoundingBox3DArray>;
 using Detection3D = vision_msgs::msg::Detection3D;
 using Detection3DArrayPtr = std::shared_ptr<vision_msgs::msg::Detection3DArray>;
 
-// CloudPtr convert_point_cloud2_to_cloud_ptr(rclcppCloudSharedPtr pc2);
-
-// rclcppCloud convert_cloud_ptr_to_point_cloud2(CloudPtr cloud, const std::string &frame_name, rclcpp::Node *node);
-// rclcppCloud convert_cloudi_ptr_to_point_cloud2(CloudIPtr cloud, const std::string &frame_name, rclcpp::Node *node);
-
-void print_diffrence(const std::string &logger_name, CloudPtr cloud1, CloudPtr cloud2);
-// CloudPtr rotate(CloudPtr cloud, double roll, double pitch, double yaw);
+void print_difference(const std::string &logger_name, CloudPtr cloud1, CloudPtr cloud2);
 
 CloudPtr remove_intensity_from_cloud(CloudIPtr cloud);
-// CloudPtr translate(CloudPtr cloud, double x, double y, double z);
 
 bool is_point_inside_box(const Point &point, const BoundingBox &box);
 
