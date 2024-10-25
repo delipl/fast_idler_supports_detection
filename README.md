@@ -10,18 +10,15 @@ Clone the repository and its submodules:
 git clone git@git.kcir.pwr.edu.pl:jdelicat/idlers_detection.git --recursive
 ```
 
-## Dependencies
-
 Install dependencies using `rosdep`:
 
 ```bash
 rosdep install --from-paths src --ignore-src -r -y
-colcon  build --symlink-install &&  source install/setup.bash
+colcon  build --symlink-install
+source install/setup.bash
 ```
 
-## Usage
-
-### Running the Algorithm
+## Running the Algorithm
 
 Run the detection algorithm and save the output to a YAML file:
 
@@ -30,9 +27,7 @@ ros2 launch fast_idler_supports_detection fast_idler_supports_detection.launch.p
 ```
 
 
-# Usage
-
-ros2 run tf2_ros static_transform_publisher 0.410 0 1.350 0 0.454 0 base_link velodyne
+## Figures
 
 Running the algorithm and save output to the yaml file:
 ```bash
