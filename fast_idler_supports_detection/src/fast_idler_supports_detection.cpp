@@ -192,12 +192,6 @@ void FastIdlerSupportsDetection::lidar_callback(const rclcppCloudSharedPtr msg) 
 
     normalization_duration_count =
         std::chrono::duration_cast<std::chrono::microseconds>(normalization_end - normalization_start).count();
-    if (debug and cloud->size() and ground->size() and without_ground->size() and aligned_cloud->size()) {
-        pcl_utils::save_cloud<PointIR>("short.pcd", cloud);
-        pcl_utils::save_cloud<PointIR>("ground.pcd", ground);
-        pcl_utils::save_cloud<PointIR>("without_ground.pcd", without_ground);
-        pcl_utils::save_cloud<PointIR>("aligned_cloud.pcd", aligned_cloud);
-    }
 
     auto density_segmentation_start = std::chrono::high_resolution_clock::now();
 
@@ -265,13 +259,6 @@ void FastIdlerSupportsDetection::lidar_callback(const rclcppCloudSharedPtr msg) 
     density_segmentation_duration_count =
         std::chrono::duration_cast<std::chrono::microseconds>(density_segmentation_end - density_segmentation_start)
             .count();
-    if (debug and merged_conveyors->size() and low_density_cloud->size() and high_density_top_cloud->size() and
-        merged_density_cloud->size()) {
-        pcl_utils::save_cloud<PointIRL>("merged_conveyors.pcd", merged_conveyors);
-        pcl_utils::save_cloud<PointIRL>("low_density_cloud.pcd", low_density_cloud);
-        pcl_utils::save_cloud<PointIRL>("high_density_top_cloud.pcd", high_density_top_cloud);
-        pcl_utils::save_cloud<PointIRL>("merged_density_cloud.pcd", merged_density_cloud);
-    }
 
     // ============================================
     auto supports_clusterization_start = std::chrono::high_resolution_clock::now();
@@ -348,6 +335,7 @@ void FastIdlerSupportsDetection::lidar_callback(const rclcppCloudSharedPtr msg) 
 
         clustered_supports_candidates_pub_->publish(
             pcl_utils::convert_cloud_ptr_to_point_cloud2<PointIRL>(merged_supports_candidates, frame, this));
+
         supports_detection_3d_pub_->publish(*supports_candidates_detection_3d_msg);
 
         // clustered_supports_candidates_velodyne_pub_->publish(
@@ -773,33 +761,6 @@ CloudIRPtr FastIdlerSupportsDetection::align_to_normal(CloudIRPtr cloud, const E
     return transformed_cloud;
 }
 
-FastIdlerSupportsDetection::EllipsoidInfo FastIdlerSupportsDetection::get_ellipsoid_and_center(CloudIPtr cloud) {
-    const float& max_value = std::numeric_limits<float>::max();
-    const float& min_value = -std::numeric_limits<float>::max();
-    Point max_coords{min_value, min_value, min_value};
-    Point min_coords{max_value, max_value, max_value};
-    for (const auto& point : cloud->points) {
-        max_coords.x = std::max(point.x, max_coords.x);
-        max_coords.y = std::max(point.y, max_coords.y);
-        max_coords.z = std::max(point.z, max_coords.z);
-
-        min_coords.x = std::min(point.x, min_coords.x);
-        min_coords.y = std::min(point.y, min_coords.y);
-        min_coords.z = std::min(point.z, min_coords.z);
-    }
-    Ellipsoid ellipsoid;
-    ellipsoid.radius_x = (max_coords.x - min_coords.x) / 2;
-    ellipsoid.radius_y = (max_coords.y - min_coords.y) / 2;
-    ellipsoid.radius_z = (max_coords.z - min_coords.z) / 2;
-    Point center;
-    center.x = min_coords.x + ellipsoid.radius_x;
-    center.y = min_coords.y + ellipsoid.radius_y;
-    center.z = min_coords.z + ellipsoid.radius_z;
-    RCLCPP_DEBUG_STREAM(get_logger(), "Ellipsoid radiuses: " << ellipsoid << "\n ellipsoid center: \n" << center);
-
-    return {ellipsoid, center, "unknown"};
-}
-
 void FastIdlerSupportsDetection::save_data_to_yaml(const sensor_msgs::msg::PointCloud2::Ptr& msg, CloudIRLPtrs clouds,
                                                    Detection3DArrayPtr detections) {
     YAML::Node frame_node;
@@ -920,67 +881,6 @@ void FastIdlerSupportsDetection::save_point_reduction_counts(const sensor_msgs::
     } else {
         RCLCPP_ERROR(get_logger(), "Cannot save data!");
     }
-}
-
-MarkersPtr FastIdlerSupportsDetection::make_markers_from_ellipsoids_infos(
-    const std::list<EllipsoidInfo>& ellipsoids_infos) {
-    auto marker_array_msg = std::make_shared<visualization_msgs::msg::MarkerArray>();
-    std::size_t count_ = 0;
-
-    for (const auto& info : ellipsoids_infos) {
-        visualization_msgs::msg::Marker marker;
-        marker.header.frame_id = "velodyne";
-        marker.ns = "spheres";
-        marker.id = count_;
-
-        marker.type = visualization_msgs::msg::Marker::SPHERE;
-        marker.action = visualization_msgs::msg::Marker::ADD;
-        marker.pose.position.x = info.center.x;
-        marker.pose.position.y = info.center.y;
-        marker.pose.position.z = info.center.z;
-
-        marker.scale.x = info.radiuses.radius_x * 2;
-        marker.scale.y = info.radiuses.radius_y * 2;
-        marker.scale.z = info.radiuses.radius_z * 2;  // Height of the cylinder
-        marker.color.a = 0.2;                         // Alpha
-        marker.color.r = 0.0;                         // Red
-        marker.color.g = 0.0;                         // Green
-        marker.color.b = 0.0;                         // Blue
-
-        if (info.class_name == "0.6m_height_support") {
-            marker.color.r = 0.0;
-            marker.color.g = 1.0;
-            marker.color.b = 0.0;
-            RCLCPP_DEBUG_STREAM(get_logger(), "Found: 0.6m_height_support");
-        } else if (info.class_name == "0.7m_height_support") {
-            marker.color.r = 0.7;
-            marker.color.g = 1.0;
-            marker.color.b = 0.3;
-            RCLCPP_DEBUG_STREAM(get_logger(), "Found: 0.7m_height_support");
-
-        } else if (info.class_name == "unknown") {
-            marker.color.r = 1.0;
-            marker.color.g = 0.0;
-            marker.color.b = 0.0;
-        }
-        count_++;
-        marker_array_msg->markers.push_back(marker);
-    }
-
-    for (std::size_t i = ellipsoids_infos.size(); i < max_detected_legs; ++i) {
-        visualization_msgs::msg::Marker marker;
-        marker.header.frame_id = "velodyne";
-        marker.ns = "spheres";
-        marker.id = i;
-        marker.action = visualization_msgs::msg::Marker::DELETE;
-        marker_array_msg->markers.push_back(marker);
-    }
-    return marker_array_msg;
-}
-
-std::ostream& operator<<(std::ostream& os, const FastIdlerSupportsDetection::Ellipsoid& ellipsoid) {
-    os << "Ellipsoid(" << ellipsoid.radius_x << ", " << ellipsoid.radius_y << ", " << ellipsoid.radius_z << ")";
-    return os;
 }
 
 Histogram FastIdlerSupportsDetection::segment_local_peeks(const Histogram& histogram, std::size_t slope,

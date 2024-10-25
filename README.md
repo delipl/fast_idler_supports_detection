@@ -1,6 +1,9 @@
 # fast_idler_supports_detection
 
-This package provides tools for fast idler supports detection using ROS 2 with PCL and density histograms.
+This package provides tools for fast idler supports detection using ROS 2 with PCL and density histograms based on PointCloud2 data.
+
+![](.docs/fast_detection.gif)
+
 
 ## Installation
 

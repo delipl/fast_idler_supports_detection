@@ -56,16 +56,6 @@ using namespace std::chrono_literals;
 class FastIdlerSupportsDetection : public rclcpp::Node {
    public:
     FastIdlerSupportsDetection();
-    struct Ellipsoid {
-        double radius_x{1.0};
-        double radius_y{1.0};
-        double radius_z{1.0};
-    };
-    struct EllipsoidInfo {
-        Ellipsoid radiuses;
-        Point center;
-        std::string class_name;
-    };
 
    private:
     void declare_parameters();
@@ -149,14 +139,11 @@ class FastIdlerSupportsDetection : public rclcpp::Node {
 
     sensor_msgs::msg::Image create_image_from_histogram(const Histogram &histogram);
 
-    MarkersPtr make_markers_from_ellipsoids_infos(const std::list<EllipsoidInfo> &ellipsoids_infos);
     BoundingBoxArrayPtr make_bounding_boxes_from_pointclouds(const CloudIRLPtrs &clustered_clouds,
                                                              const std::string &frame_name);
     vision_msgs::msg::ObjectHypothesisWithPose score_conveyor(const vision_msgs::msg::BoundingBox3D bbox);
     Detection3DArrayPtr detect_conveyors(const CloudIRLPtrs &clustered_clouds, const std::string &frame_name);
     Detection3DArrayPtr detect_supports(const CloudIRLPtrs &clustered_clouds, const std::string &frame_name);
-
-    EllipsoidInfo get_ellipsoid_and_center(CloudIPtr cloud);
 
     void save_data_to_yaml(const sensor_msgs::msg::PointCloud2::Ptr &msg, CloudIRLPtrs clouds,
                            Detection3DArrayPtr detections);
@@ -181,6 +168,3 @@ class FastIdlerSupportsDetection : public rclcpp::Node {
     std::size_t roi_points_count;
     int debug = 1;
 };
-
-// Przeładowanie operatora << dla struktury Ellipsoid
-std::ostream &operator<<(std::ostream &os, const FastIdlerSupportsDetection::Ellipsoid &ellipsoid);

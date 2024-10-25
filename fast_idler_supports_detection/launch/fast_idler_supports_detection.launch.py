@@ -27,7 +27,7 @@ def generate_launch_description():
                 executable="fast_idler_supports_detection",
                 output="screen",
                 emulate_tty=True,
-                parameters=[{"general.debug": "1"}],
+                parameters=[],
             ),
             launch_ros.actions.Node(
                 package="tf2_ros",
@@ -42,7 +42,7 @@ def generate_launch_description():
                     "0.454",
                     "0",
                     "base_link",
-                    "velodyne_link",
+                    "velodyne",
                 ],
                 parameters=[{"use_sim_time": True}],
             ),
