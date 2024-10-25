@@ -33,12 +33,12 @@ def plot_feature_with_bbox(ax, features, label, color, bbox_color):
                 alpha=0.08,
             )
         )
-        
+
         center = (
             feature.box_center[0] - feature.box_size[0] / 2,
             feature.box_center[1] - feature.box_size[1] / 2,
         )
-        
+
         ax.add_patch(
             Rectangle(
                 center,
@@ -47,7 +47,7 @@ def plot_feature_with_bbox(ax, features, label, color, bbox_color):
                 edgecolor=bbox_color,
                 facecolor=None,
                 alpha=0.08,
-                fill=False
+                fill=False,
             )
         )
     ax.plot(mean_points_x, mean_points_y, ".", c=color, label=label, markersize=3)

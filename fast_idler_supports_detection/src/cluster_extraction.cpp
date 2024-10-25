@@ -1,4 +1,4 @@
-#include <objects_detection/cluster_extraction.hpp>
+#include <fast_idler_supports_detection/cluster_extraction.hpp>
 
 CloudIRLPtrs ClusterExtraction::euclidean(CloudIRPtr cloud, double tolerance, std::size_t min_size,
                                           std::size_t max_size) const {

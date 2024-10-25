@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 
+
 def cartesian_to_spherical(x, y, z):
     r = np.sqrt(x**2 + y**2 + z**2)
 
@@ -78,4 +79,4 @@ def add_levels_to_plot(ax):
     contour = ax.contourf(X, Y, Z, levels=np.arange(1, 9, 1), cmap="coolwarm")
     # Add labels with function values to the contour lines
     ax.clabel(contour, inline=True, fontsize=8, fmt="%1.0f")
-    plt.colorbar(contour, label='f(x, y)')
+    plt.colorbar(contour, label="f(x, y)")

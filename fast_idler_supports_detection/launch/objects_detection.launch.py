@@ -8,12 +8,10 @@ def generate_launch_description():
     return launch.LaunchDescription(
         [
             launch_ros.actions.Node(
-                package="objects_detection",
-                executable="object_detection",
+                package="fast_idler_supports_detection",
+                executable="fast_idler_supports_detection",
                 output="screen",
                 emulate_tty=True,
-                # output='screen',
-                # prefix=["gdbserver localhost:8009"],
                 parameters=[{"general.debug": "1"}],
             ),
             launch_ros.actions.Node(

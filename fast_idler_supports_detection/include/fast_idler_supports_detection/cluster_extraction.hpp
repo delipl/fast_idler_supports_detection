@@ -10,7 +10,7 @@
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/segmentation/sac_segmentation.h>
 
-#include <objects_detection/utils.hpp>
+#include <fast_idler_supports_detection/utils.hpp>
 class ClusterExtraction {
    public:
     ClusterExtraction() = default;
